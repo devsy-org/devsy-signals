@@ -1,0 +1,4 @@
+/dist/
+/ts/node_modules/
+*.test
+*.out
