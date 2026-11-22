@@ -31,11 +31,21 @@ jobs:
           go-version: 1.26.x
       - name: Test current Go
         run: go test -race ./...
+      - name: Test tools module
+        run: cd tools && go test -race ./...
+      - name: Check generated files are current
+        run: |
+          cd tools && go run ./cmd/gencodes
+          test -z "$(git status --porcelain)" || { git status --porcelain; git diff; exit 1; }
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
         with:
           version: v2.14.0
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+        with:
+          version: v2.14.0
+          working-directory: tools
       - name: Check Go formatting
-        run: golangci-lint fmt --diff
+        run: golangci-lint fmt --diff && (cd tools && golangci-lint fmt --diff)
 
   ci-success:
     name: CI Success
