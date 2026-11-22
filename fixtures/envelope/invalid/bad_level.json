@@ -1,0 +1,8 @@
+{
+  "v": 1,
+  "kind": "log",
+  "ts": "2026-11-22T10:15:03.123Z",
+  "src": "cli",
+  "level": "fatal",
+  "msg": "workspace created"
+}

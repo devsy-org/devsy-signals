@@ -1,0 +1,264 @@
+package envelope
+
+import (
+	"encoding/json"
+	"errors"
+	"fmt"
+	"maps"
+	"math"
+	"reflect"
+	"regexp"
+	"slices"
+	"strings"
+	"time"
+)
+
+// Attribute limits.
+const (
+	MaxAttrs          = 64
+	MaxAttrKeyBytes   = 128
+	MaxAttrValueBytes = 4096
+	maxTypeBytes      = 128
+	policyApply       = "policy.apply"
+)
+
+var (
+	keyRE  = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$`)
+	ulidRE = regexp.MustCompile(`^[0-7][0-9A-HJKMNP-TV-Z]{25}$`)
+	srcRE  = regexp.MustCompile(
+		`^(cli|desktop|agent|controlplane|pool|provider/[a-z0-9][a-z0-9._-]*)$`,
+	)
+	tsRE = regexp.MustCompile(
+		`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$`,
+	)
+	// numberRE is the JSON number grammar. Groups: sign, integer, fraction, exponent sign, exponent.
+	numberRE  = regexp.MustCompile(`^(-?)(0|[1-9][0-9]*)(?:\.([0-9]+))?(?:[eE]([+-]?)([0-9]+))?$`)
+	traceIDRE = regexp.MustCompile(`^[0-9a-f]{32}$`)
+	spanIDRE  = regexp.MustCompile(`^[0-9a-f]{16}$`)
+)
+
+type problems []error
+
+func (p *problems) add(ok bool, format string, args ...any) {
+	if !ok {
+		*p = append(*p, fmt.Errorf(format, args...))
+	}
+}
+
+// Validate applies the rules of schema/envelope.schema.json and returns every
+// violation, joined. Strings are measured in bytes where the design sets a
+// byte limit.
+func (e Envelope) Validate() error {
+	return errors.Join(
+		e.checkHeader(), e.checkRequired(), e.checkAudit(), e.checkIDs(),
+		e.checkActor(), e.checkError(), e.checkAttrs(),
+	)
+}
+
+func (e Envelope) checkHeader() error {
+	var p problems
+	p.add(e.V == Version, "v must be %d, got %d", Version, e.V)
+	p.add(e.Kind.Valid(), "kind %q is not log, status, result, error or audit", e.Kind)
+	p.add(validTS(e.TS), "ts %q must be RFC 3339 UTC with milliseconds", e.TS)
+	p.add(srcRE.MatchString(e.Src), "src %q is not a known source", e.Src)
+	p.add(e.Level == "" || e.Level.Valid(), "level %q is not a known level", e.Level)
+	p.add(e.Type == "" || validKey(e.Type, maxTypeBytes), "type %q is malformed", e.Type)
+	p.add(e.ID == "" || ulidRE.MatchString(e.ID), "id %q is not a ULID", e.ID)
+	return errors.Join(p...)
+}
+
+func (e Envelope) checkRequired() error {
+	var p problems
+	for _, field := range e.missingFields() {
+		p.add(false, "%s is required for kind %s", field, e.Kind)
+	}
+	p.add(e.Kind != KindAudit || e.Type == policyApply || e.Session != "",
+		"session is required for audit type %q", e.Type)
+	return errors.Join(p...)
+}
+
+type missing []string
+
+func (m *missing) need(field string, ok bool) {
+	if !ok {
+		*m = append(*m, field)
+	}
+}
+
+func (m *missing) typeAndID(e Envelope) {
+	m.need("type", e.Type != "")
+	m.need("id", e.ID != "")
+}
+
+// missingFields lists the fields that e.Kind requires and e leaves unset.
+func (e Envelope) missingFields() []string {
+	var m missing
+	switch e.Kind {
+	case KindLog:
+		m.need("level", e.Level != "")
+		m.need("msg", e.Msg != "")
+	case KindStatus:
+		m.typeAndID(e)
+		m.need("level", e.Level != "")
+		m.need("data", e.Data != nil)
+	case KindResult:
+		m.typeAndID(e)
+		m.need("data", e.Data != nil)
+	case KindError:
+		m.typeAndID(e)
+		m.need("error", e.Error != nil)
+	case KindAudit:
+		m.typeAndID(e)
+		m.need("data", e.Data != nil)
+		m.need("pool", e.Pool != "")
+		m.need("host", e.Host != "")
+		m.need("policyVersion", e.PolicyVersion != "")
+		m.need("actor", e.Actor != nil)
+	default:
+		// checkHeader reports an unknown kind.
+	}
+	return m
+}
+
+func (e Envelope) checkAudit() error {
+	if e.Kind != KindAudit {
+		return nil
+	}
+	var p problems
+	p.add(e.Msg == "", "msg is not allowed on audit")
+	p.add(e.Level == "", "level is not allowed on audit")
+	p.add(e.Attrs == nil, "attrs is not allowed on audit")
+	return errors.Join(p...)
+}
+
+func (e Envelope) checkIDs() error {
+	var p problems
+	p.add(
+		validHex(e.TraceID, traceIDRE),
+		"traceId %q must be 32 lowercase hex digits and not zero",
+		e.TraceID,
+	)
+	p.add(
+		validHex(e.OperationID, spanIDRE),
+		"operationId %q must be 16 lowercase hex digits and not zero",
+		e.OperationID,
+	)
+	p.add(validHex(e.ParentOperationID, spanIDRE),
+		"parentOperationId %q must be 16 lowercase hex digits and not zero", e.ParentOperationID)
+	return errors.Join(p...)
+}
+
+func (e Envelope) checkActor() error {
+	if e.Actor == nil {
+		return nil
+	}
+	var p problems
+	p.add(e.Actor.Kind.Valid(), "actor.kind %q is not a known actor kind", e.Actor.Kind)
+	p.add(e.Actor.ID != "", "actor.id is required")
+	return errors.Join(p...)
+}
+
+func (e Envelope) checkError() error {
+	if e.Error == nil {
+		return nil
+	}
+	var p problems
+	p.add(keyRE.MatchString(e.Error.Code), "error.code %q is malformed", e.Error.Code)
+	p.add(e.Error.Message != "", "error.message is required")
+	p.add(e.Error.Class.Valid(), "error.class %q is not a known class", e.Error.Class)
+	return errors.Join(p...)
+}
+
+func (e Envelope) checkAttrs() error {
+	var p problems
+	p.add(len(e.Attrs) <= MaxAttrs, "attrs has %d keys, the limit is %d", len(e.Attrs), MaxAttrs)
+	for _, key := range slices.Sorted(maps.Keys(e.Attrs)) {
+		p.add(validKey(key, MaxAttrKeyBytes), "attrs key %q is malformed", key)
+		if err := attrValueErr(e.Attrs[key]); err != nil {
+			p.add(false, "attrs[%q]: %v", key, err)
+		}
+	}
+	return errors.Join(p...)
+}
+
+// attrValueErr accepts what marshals to a scalar or to an array of scalars
+// that the schema allows. Typed slices and arrays are checked by reflection.
+func attrValueErr(v any) error {
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.Slice:
+		if rv.IsNil() {
+			return errors.New("a nil slice marshals to null")
+		}
+		if rv.Type().Elem().Kind() == reflect.Uint8 {
+			return errors.New("a byte slice marshals to a base64 string, use a string")
+		}
+		return elementsErr(rv)
+	case reflect.Array:
+		return elementsErr(rv)
+	default:
+		return scalarErr(v)
+	}
+}
+
+func elementsErr(rv reflect.Value) error {
+	var errs []error
+	for i := range rv.Len() {
+		if err := scalarErr(rv.Index(i).Interface()); err != nil {
+			errs = append(errs, fmt.Errorf("element %d: %w", i, err))
+		}
+	}
+	return errors.Join(errs...)
+}
+
+func scalarErr(v any) error {
+	if n, ok := v.(json.Number); ok {
+		if !numberRE.MatchString(string(n)) {
+			return fmt.Errorf("invalid number %q", string(n))
+		}
+		return nil
+	}
+	rv := reflect.ValueOf(v)
+	switch rv.Kind() {
+	case reflect.String:
+		return stringErr(rv.Len())
+	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return nil
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+		return nil
+	case reflect.Float32, reflect.Float64:
+		return floatErr(rv.Float())
+	default:
+		return fmt.Errorf("unsupported value type %T", v)
+	}
+}
+
+func stringErr(n int) error {
+	if n > MaxAttrValueBytes {
+		return fmt.Errorf("string value is %d bytes, the limit is %d", n, MaxAttrValueBytes)
+	}
+	return nil
+}
+
+func floatErr(f float64) error {
+	if math.IsNaN(f) || math.IsInf(f, 0) {
+		return errors.New("NaN and Inf are not JSON numbers")
+	}
+	return nil
+}
+
+func validTS(s string) bool {
+	if !tsRE.MatchString(s) {
+		return false
+	}
+	_, err := time.Parse(TimeLayout, s)
+	return err == nil
+}
+
+func validKey(s string, maxBytes int) bool {
+	return len(s) <= maxBytes && keyRE.MatchString(s)
+}
+
+func validHex(s string, re *regexp.Regexp) bool {
+	return s == "" || (re.MatchString(s) && strings.Trim(s, "0") != "")
+}

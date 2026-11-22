@@ -1,0 +1,21 @@
+{
+  "v": 1,
+  "kind": "error",
+  "type": "workspace.up",
+  "id": "01JD8Z3K5V7Q2M4N6P8R0S1T2Z",
+  "ts": "2026-11-22T10:15:03.123Z",
+  "src": "provider/gcloud",
+  "traceId": "0af7651916cd43dd8448eb211c80319c",
+  "operationId": "b7ad6b7169203331",
+  "parentOperationId": "00f067aa0ba902b7",
+  "error": {
+    "code": "provider.auth_failed",
+    "hint": "Run the provider login again.",
+    "class": "environment",
+    "retryable": false,
+    "context": {
+      "region": "eu-west-1",
+      "status": "403"
+    }
+  }
+}

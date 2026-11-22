@@ -1,0 +1,16 @@
+{
+  "v": 1,
+  "kind": "status",
+  "type": "workspace.up",
+  "id": "01JD8Z3K5V7Q2M4N6P8R0S1T2W",
+  "ts": "2026-11-22T10:15:03.123Z",
+  "src": "agent",
+  "level": "info",
+  "traceId": "0af7651916cd43dd8448eb211c80319c",
+  "operationId": "0af7651916cd43dd8448eb211c80319c",
+  "workspace": "my-ws",
+  "data": {
+    "phase": "build",
+    "step": 2
+  }
+}
