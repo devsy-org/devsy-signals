@@ -1,56 +1,107 @@
 version: "2"
 run:
   timeout: 10m
-  concurrency: 8
 formatters:
-  enable:
-    - gci
-    - gofumpt
-    - goimports
-    - golines
+  enable: [gci, gofumpt, goimports, golines]
+  settings:
+    gci:
+      sections: [standard, default, prefix(github.com/devsy-org)]
   exclusions:
-    paths:
-      - ".*\\.pb\\.go$"
+    generated: strict
+    paths: ['\.pb\.go$']
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
 linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
   enable:
+    - bodyclose
+    - containedctx
+    - contextcheck
     - cyclop
     - decorder
+    - depguard
     - dupl
-    - errcheck
+    - errname
+    - errorlint
+    - exhaustive
     - fatcontext
     - forbidigo
+    - forcetypeassert
     - funcorder
     - funlen
+    - gochecknoglobals
+    - gochecknoinits
     - goconst
+    - gocognit
     - gocritic
     - godot
     - gosec
+    - interfacebloat
     - lll
     - misspell
     - modernize
     - nestif
+    - nilnil
+    - noctx
+    - nolintlint
+    - paralleltest
     - revive
-    - staticcheck
+    - sloglint
+    - sqlclosecheck
+    - testifylint
+    - thelper
+    - tparallel
     - unparam
-    - unused
+    - usetesting
     - whitespace
+    - wrapcheck
   exclusions:
+    generated: strict
+    paths: ['\.pb\.go$']
     rules:
-      - path: ".*\\.pb\\.go$"
-        linters:
-          - lll
-      - path: "hack/"
-        linters:
-          - forbidigo
-          - gosec
+      - path: _test\.go
+        linters: [wrapcheck, gochecknoglobals, dupl, funlen]
+      - path: ^hack/
+        linters: [forbidigo]
   settings:
-    cyclop:
-      max-complexity: 8
+    cyclop: {max-complexity: 8}
+    gocognit: {min-complexity: 15}
+    funlen: {lines: 60, statements: 40, ignore-comments: true}
+    nestif: {min-complexity: 4}
+    lll: {line-length: 120}
+    interfacebloat: {max: 5}
+    exhaustive: {default-signifies-exhaustive: true}
+    nolintlint: {require-explanation: true, require-specific: true}
+    wrapcheck:
+      ignore-package-globs: ["github.com/devsy-org/*"]
+    forbidigo:
+      forbid:
+        - pattern: ^(fmt\.Print(|f|ln)|print|println)$
+    depguard:
+      rules:
+        main:
+          deny:
+            - {pkg: io/ioutil, desc: use io and os}
+            - {pkg: github.com/pkg/errors, desc: use errors and fmt.Errorf with %w}
+            - {pkg: golang.org/x/net/context, desc: use context}
+        no-math-rand:
+          files: ["!$test"]
+          deny:
+            - {pkg: math/rand$, desc: use math/rand/v2 or crypto/rand}
+    sloglint:
+      no-mixed-args: true
+      attr-only: true
+      no-raw-keys: true
+      static-msg: true
+      forbidden-keys: [time, level, msg, source]
     revive:
       rules:
-        - name: argument-limit
-          arguments: [4]
-        - name: function-result-limit
-          arguments: [3]
-        - name: blank-imports
-        - name: nested-structs
+        - {name: argument-limit, arguments: [4]}
+        - {name: function-result-limit, arguments: [3]}
+        - {name: max-control-nesting, arguments: [4]}
+        - {name: file-length-limit, arguments: [{max: 500, skipComments: true, skipBlankLines: true}]}
+        - {name: context-as-argument}
+        - {name: deep-exit}
+        - {name: early-return}
+        - {name: unused-parameter}
