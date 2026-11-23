@@ -28,7 +28,7 @@ func errorWith(body string) string {
 	return `{"v":1,` + errFields + `,"error":{` + body + "}}"
 }
 
-func TestDecodeRejects(t *testing.T) {
+func TestDecodeStrictRejects(t *testing.T) {
 	t.Parallel()
 	cases := map[string]string{
 		"null root":             `null`,
@@ -70,7 +70,7 @@ func TestDecodeRejects(t *testing.T) {
 	for name, in := range cases {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			if e, err := envelope.Decode([]byte(in)); err == nil {
+			if e, err := envelope.DecodeStrict([]byte(in)); err == nil {
 				t.Fatalf("accepted as %+v", e)
 			}
 		})
@@ -126,7 +126,7 @@ func BenchmarkDecodeNumericArray(b *testing.B) {
 	record := strings.TrimSuffix(sb.String(), "}") + `,"data":{"values":[`
 	sb.Reset()
 	sb.WriteString(record)
-	for i := 0; sb.Len() < 1<<20; i++ {
+	for i := 0; sb.Len() < 1<<15; i++ {
 		if i > 0 {
 			sb.WriteByte(',')
 		}
