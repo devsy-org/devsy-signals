@@ -5,7 +5,7 @@ formatters:
   enable: [gci, gofumpt, goimports, golines]
   settings:
     gci:
-      sections: [standard, default, prefix(github.com/devsy-org)]
+      sections: [standard, default, prefix(github.com/devsy-org/)]
   exclusions:
     generated: strict
     paths: ['\.pb\.go$']
@@ -60,7 +60,7 @@ linters:
     generated: strict
     paths: ['\.pb\.go$']
     rules:
-      - path: _test\.go
+      - path: _test\.go$
         linters: [wrapcheck, gochecknoglobals, dupl, funlen]
       - path: ^hack/
         linters: [forbidigo]
@@ -105,3 +105,5 @@ linters:
         - {name: deep-exit}
         - {name: early-return}
         - {name: unused-parameter}
+        - {name: blank-imports}
+        - {name: nested-structs}
