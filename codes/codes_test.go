@@ -35,7 +35,7 @@ func TestRegistryIsConsistent(t *testing.T) {
 		if !codeRE.MatchString(code) {
 			t.Errorf("%s has a bad format", code)
 		}
-		if !info.Class.Valid() || info.Class.Exit() != info.Exit {
+		if !info.Class.Known() || info.Class.Exit() != info.Exit {
 			t.Errorf("%s: class %s does not give exit %d", code, info.Class, info.Exit)
 		}
 	}
@@ -58,7 +58,7 @@ func TestClassExit(t *testing.T) {
 			t.Errorf("%s exit = %d, want %d", class, got, exit)
 		}
 	}
-	if codes.Class("nope").Valid() {
-		t.Error("unknown class is valid")
+	if codes.Class("nope").Known() {
+		t.Error("unregistered class is known")
 	}
 }

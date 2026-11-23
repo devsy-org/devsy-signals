@@ -40,6 +40,9 @@ func TestParseRejects(t *testing.T) {
 		"bad format":    header + "  - {code: Bad.Code, class: internal, retryable: false, exit: 1, summary: s}\n",
 		"uppercase":     header + "  - {code: a.B, class: internal, retryable: false, exit: 1, summary: s}\n",
 		"empty segment": header + "  - {code: a., class: internal, retryable: false, exit: 1, summary: s}\n",
+		"new bare code": header + "  - {code: failure, class: internal, retryable: false, exit: 1, summary: s}\n",
+		"three segments": header +
+			"  - {code: a.b.c, class: internal, retryable: false, exit: 1, summary: s}\n",
 		"unknown class": header + "  - {code: a.b, class: nope, retryable: false, exit: 1, summary: s}\n",
 		"wrong exit":    header + "  - {code: a.b, class: internal, retryable: false, exit: 2, summary: s}\n",
 		"no summary":    header + "  - {code: a.b, class: internal, retryable: false, exit: 1}\n",
@@ -89,12 +92,44 @@ func TestParseRejectsSecondDocument(t *testing.T) {
 
 func TestParseRejectsReservedNames(t *testing.T) {
 	t.Parallel()
-	for _, code := range []string{"lookup", "all", "class", "info", "class_internal", "class.transient"} {
+	for _, code := range []string{"class.internal", "class.transient"} {
 		t.Run(code, func(t *testing.T) {
 			t.Parallel()
 			entry := "  - {code: " + code + ", class: internal, retryable: false, exit: 1, summary: s}\n"
 			_, err := registry.Parse([]byte(header + entry))
 			assert.ErrorContains(t, err, "reserved")
+		})
+	}
+}
+
+func TestParseRejectsInvalidSummary(t *testing.T) {
+	t.Parallel()
+	const singleLine = "summary must be a single line"
+	for name, tc := range map[string]struct {
+		summary string
+		want    string
+	}{
+		"blank":     {`"  \t  "`, "summary must not be blank"},
+		"multiline": {`"first\nsecond"`, singleLine},
+		"carriage":  {`"first\rsecond"`, singleLine},
+		"unicode":   {`"first\u2028second"`, singleLine},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			entry := "  - {code: a.b, class: internal, retryable: false, exit: 1, summary: " + tc.summary + "}\n"
+			_, err := registry.Parse([]byte(header + entry))
+			assert.ErrorContains(t, err, tc.want)
+		})
+	}
+}
+
+func TestParseRejectsInvalidClassNames(t *testing.T) {
+	t.Parallel()
+	for _, class := range []string{"Bad", "bad-class", "bad__class", "bad_", "1bad"} {
+		t.Run(class, func(t *testing.T) {
+			t.Parallel()
+			_, err := registry.Parse([]byte("classes: {" + class + ": 1}\ncodes: []\n"))
+			assert.ErrorContains(t, err, "must be lowercase snake_case")
 		})
 	}
 }
