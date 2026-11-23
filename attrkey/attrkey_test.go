@@ -4,8 +4,10 @@ import (
 	"go/ast"
 	"go/parser"
 	"go/token"
+	"path/filepath"
 	"regexp"
 	"strconv"
+	"strings"
 	"testing"
 )
 
@@ -37,21 +39,42 @@ func TestKeysAreWellFormedAndUnique(t *testing.T) {
 	}
 }
 
+// declaredKeys reads every constant in the package source, so a key added in
+// any file is checked.
 func declaredKeys(t *testing.T) map[string]string {
 	t.Helper()
-	file, err := parser.ParseFile(token.NewFileSet(), "attrkey.go", nil, 0)
+	paths, err := filepath.Glob("*.go")
 	if err != nil {
 		t.Fatal(err)
 	}
 	keys := map[string]string{}
-	ast.Inspect(file, func(n ast.Node) bool {
-		spec, ok := n.(*ast.ValueSpec)
-		if !ok {
-			return true
+	for _, path := range paths {
+		if strings.HasSuffix(path, "_test.go") {
+			continue
+		}
+		file, err := parser.ParseFile(token.NewFileSet(), path, nil, 0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, decl := range file.Decls {
+			if gen, ok := decl.(*ast.GenDecl); ok && gen.Tok == token.CONST {
+				addConsts(t, gen, keys)
+			}
+		}
+	}
+	return keys
+}
+
+func addConsts(t *testing.T, gen *ast.GenDecl, keys map[string]string) {
+	t.Helper()
+	for _, s := range gen.Specs {
+		spec, _ := s.(*ast.ValueSpec)
+		if spec == nil || len(spec.Values) != len(spec.Names) {
+			t.Fatalf("every key constant needs its own string literal at %v", s.Pos())
 		}
 		for i, name := range spec.Names {
 			lit, isLit := spec.Values[i].(*ast.BasicLit)
-			if !isLit {
+			if !isLit || lit.Kind != token.STRING {
 				t.Fatalf("%s is not a string literal", name.Name)
 			}
 			value, err := strconv.Unquote(lit.Value)
@@ -60,7 +83,5 @@ func declaredKeys(t *testing.T) map[string]string {
 			}
 			keys[name.Name] = value
 		}
-		return false
-	})
-	return keys
+	}
 }
