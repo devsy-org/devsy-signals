@@ -83,8 +83,8 @@ type Envelope struct {
 	Attrs             map[string]any `json:"attrs,omitempty"`
 }
 
-// Valid reports whether k is a known kind.
-func (k Kind) Valid() bool {
+// Known reports whether k is a known kind.
+func (k Kind) Known() bool {
 	switch k {
 	case KindLog, KindStatus, KindResult, KindError, KindAudit:
 		return true
@@ -92,8 +92,8 @@ func (k Kind) Valid() bool {
 	return false
 }
 
-// Valid reports whether k is a known actor kind.
-func (k ActorKind) Valid() bool {
+// Known reports whether k is a known actor kind.
+func (k ActorKind) Known() bool {
 	switch k {
 	case ActorUser, ActorAgent, ActorAdapter, ActorLocalUser, ActorSystem:
 		return true

@@ -39,12 +39,40 @@ func TestSeverity(t *testing.T) {
 		envelope.LevelWarn: 13, envelope.LevelError: 17,
 	}
 	for level, n := range want {
-		if got := level.Severity(); got != n || !level.Valid() {
+		if got := level.Severity(); got != n || !level.Known() {
 			t.Errorf("%s = %d, want %d", level, got, n)
 		}
 	}
-	if envelope.Level("fatal").Valid() || envelope.Level("").Severity() != 0 {
-		t.Error("unknown level is valid")
+	if envelope.Level("fatal").Known() || envelope.Level("").Severity() != 0 {
+		t.Error("unrecognized level is known")
+	}
+}
+
+func TestKindKnown(t *testing.T) {
+	t.Parallel()
+	for _, kind := range []envelope.Kind{
+		envelope.KindLog, envelope.KindStatus, envelope.KindResult, envelope.KindError, envelope.KindAudit,
+	} {
+		if !kind.Known() {
+			t.Errorf("kind %q is not known", kind)
+		}
+	}
+	if envelope.Kind("future").Known() || envelope.Kind("").Known() {
+		t.Error("unrecognized kind is known")
+	}
+}
+
+func TestActorKindKnown(t *testing.T) {
+	t.Parallel()
+	for _, kind := range []envelope.ActorKind{
+		envelope.ActorUser, envelope.ActorAgent, envelope.ActorAdapter, envelope.ActorLocalUser, envelope.ActorSystem,
+	} {
+		if !kind.Known() {
+			t.Errorf("actor kind %q is not known", kind)
+		}
+	}
+	if envelope.ActorKind("visitor").Known() || envelope.ActorKind("").Known() {
+		t.Error("unrecognized actor kind is known")
 	}
 }
 
