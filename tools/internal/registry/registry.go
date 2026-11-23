@@ -13,7 +13,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var codeRE = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$`)
+var (
+	codeRE  = regexp.MustCompile(`^[a-z][a-z0-9_]*\.[a-z0-9_]+$`)
+	classRE = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
+)
 
 // Entry is one registered error code.
 type Entry struct {
@@ -97,6 +100,11 @@ func (f File) Validate() error {
 	if len(f.Classes) == 0 {
 		errs = append(errs, errors.New("classes is empty"))
 	}
+	for class := range f.Classes {
+		if !classRE.MatchString(class) {
+			errs = append(errs, fmt.Errorf("class %q must be lowercase snake_case", class))
+		}
+	}
 	reserved := f.reservedNames()
 	seen := map[string]bool{}
 	for _, e := range f.Codes {
@@ -138,8 +146,8 @@ func ConstName(code string) string {
 }
 
 func (f File) checkEntry(e Entry, seen, reserved map[string]bool) error {
-	if !codeRE.MatchString(e.Code) {
-		return fmt.Errorf("code %q does not match %s", e.Code, codeRE)
+	if !validCode(e.Code) {
+		return fmt.Errorf("code %q must have the form domain.reason", e.Code)
 	}
 	exit, ok := f.Classes[e.Class]
 	switch {
@@ -151,8 +159,19 @@ func (f File) checkEntry(e Entry, seen, reserved map[string]bool) error {
 		return fmt.Errorf("code %q has exit %d, class %s needs %d", e.Code, e.Exit, e.Class, exit)
 	case reserved[ConstName(e.Code)]:
 		return fmt.Errorf("code %q generates the reserved Go name %s", e.Code, ConstName(e.Code))
-	case e.Summary == "":
-		return fmt.Errorf("code %q has no summary", e.Code)
+	case strings.TrimSpace(e.Summary) == "":
+		return fmt.Errorf("code %q summary must not be blank", e.Code)
+	case strings.ContainsAny(e.Summary, "\r\n\v\f\u0085\u2028\u2029"):
+		return fmt.Errorf("code %q summary must be a single line", e.Code)
 	}
 	return nil
+}
+
+func validCode(code string) bool {
+	switch code {
+	case "unknown", "canceled", "timeout":
+		return true
+	default:
+		return codeRE.MatchString(code)
+	}
 }
