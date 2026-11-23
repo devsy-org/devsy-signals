@@ -1,0 +1,9 @@
+{
+  "v": 1,
+  "kind": "error",
+  "type": "a.b",
+  "id": "01JD8Z3K5V7Q2M4N6P8R0S1T34",
+  "ts": "2026-11-22T10:15:03.123Z",
+  "src": "cli",
+  "error": {"code": "a.b", "message": "m", "hint": null, "class": "internal", "retryable": false}
+}

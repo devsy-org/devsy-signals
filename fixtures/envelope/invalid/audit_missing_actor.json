@@ -1,0 +1,18 @@
+{
+  "v": 1,
+  "kind": "audit",
+  "type": "egress.deny",
+  "id": "01JD8Z3K5V7Q2M4N6P8R0S1T30",
+  "ts": "2026-11-22T10:15:03.123Z",
+  "src": "pool",
+  "traceId": "0af7651916cd43dd8448eb211c80319c",
+  "operationId": "b7ad6b7169203331",
+  "pool": "pool-a",
+  "host": "h_01JD8Z3K5V7Q2M4N6P8R0S1T31",
+  "policyVersion": "2026-11-01.3",
+  "session": "s_01JD8Z3K5V7Q2M4N6P8R0S1T32",
+  "data": {
+    "destination": "example.com",
+    "port": 443
+  }
+}
