@@ -207,8 +207,8 @@ func All() []string {
 	}
 }
 
-// Valid reports whether c is a registered class.
-func (c Class) Valid() bool {
+// Known reports whether c is a registered class.
+func (c Class) Known() bool {
 	_, ok := classExit[c]
 	return ok
 }
