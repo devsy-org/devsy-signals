@@ -19,6 +19,15 @@ const (
 	HTTPResponseStatusCode = "http.response.status_code"
 	ContainerID            = "container.id"
 	K8sNamespaceName       = "k8s.namespace.name"
+	ServerPort             = "server.port"
+	NetworkPeerAddress     = "network.peer.address"
+	ProcessExecutableName  = "process.executable.name"
+	ContainerImageID       = "container.image.id"
+	HTTPRequestBodySize    = "http.request.body.size"
+	HTTPResponseBodySize   = "http.response.body.size"
+	UserID                 = "user.id"
+	VCSRepositoryName      = "vcs.repository.name"
+	VCSRefHeadName         = "vcs.ref.head.name"
 )
 
 // Devsy keys.
