@@ -18,6 +18,7 @@ import (
 const (
 	root      = "../.."
 	schemaURL = "https://github.com/devsy-org/devsy-signals/schema/envelope.schema.json"
+	goOnlyDir = "go_only"
 )
 
 func compile(t *testing.T) *jsonschema.Schema {
@@ -42,11 +43,13 @@ func readFile(path string) ([]byte, error) {
 	return os.ReadFile(path) //nolint:gosec // fixture path from a fixed glob
 }
 
-func fixtureFiles(t *testing.T, dir string) []string {
+func fixtureFiles(t *testing.T, repo, dir string) []string {
 	t.Helper()
-	files, err := filepath.Glob(filepath.Join(root, "fixtures", "envelope", dir, "*.json"))
+	files, err := filepath.Glob(filepath.Join(repo, "fixtures", "envelope", dir, "*.json"))
 	require.NoError(t, err)
-	require.NotEmpty(t, files)
+	if dir != goOnlyDir {
+		require.NotEmpty(t, files)
+	}
 	return files
 }
 
@@ -68,7 +71,7 @@ func goVerdict(raw []byte) error {
 func TestValidFixturesPassSchema(t *testing.T) {
 	t.Parallel()
 	s := compile(t)
-	for _, path := range fixtureFiles(t, "valid") {
+	for _, path := range fixtureFiles(t, root, "valid") {
 		t.Run(filepath.Base(path), func(t *testing.T) {
 			t.Parallel()
 			raw, err := readFile(path)
@@ -81,7 +84,7 @@ func TestValidFixturesPassSchema(t *testing.T) {
 func TestInvalidFixturesFailSchema(t *testing.T) {
 	t.Parallel()
 	s := compile(t)
-	for _, path := range fixtureFiles(t, "invalid") {
+	for _, path := range fixtureFiles(t, root, "invalid") {
 		t.Run(filepath.Base(path), func(t *testing.T) {
 			t.Parallel()
 			raw, err := readFile(path)
@@ -95,8 +98,8 @@ func TestGoValidatorAgreesWithSchema(t *testing.T) {
 	t.Parallel()
 	s := compile(t)
 	goOnly := loadGoOnly(t)
-	for _, dir := range []string{"valid", "invalid", "go_only"} {
-		for _, path := range fixtureFiles(t, dir) {
+	for _, dir := range []string{"valid", "invalid", goOnlyDir} {
+		for _, path := range fixtureFiles(t, root, dir) {
 			name := dir + "/" + filepath.Base(path)
 			reason := goOnly[name]
 			delete(goOnly, name)

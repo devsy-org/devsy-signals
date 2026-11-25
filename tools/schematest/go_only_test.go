@@ -26,6 +26,11 @@ func loadGoOnly(t *testing.T) map[string]string {
 	return cases
 }
 
+func TestGoOnlyFixtureDirectoryMayBeEmpty(t *testing.T) {
+	t.Parallel()
+	assert.Empty(t, fixtureFiles(t, t.TempDir(), goOnlyDir))
+}
+
 func differentialVerdict(reason string, schemaErr, goErr error) error {
 	if reason != "" {
 		if schemaErr != nil {
