@@ -10,11 +10,11 @@ import (
 	"github.com/devsy-org/devsy-signals/schema"
 )
 
-func resultRecord(t *testing.T) envelope.Envelope {
-	t.Helper()
+func resultRecord(tb testing.TB) envelope.Envelope {
+	tb.Helper()
 	e, err := envelope.DecodeStrict([]byte(resultWith(`,"data":{}`)))
 	if err != nil {
-		t.Fatal(err)
+		tb.Fatal(err)
 	}
 	return e
 }
@@ -94,6 +94,11 @@ func TestValidateDataCycle(t *testing.T) {
 	ptr = &ptr
 	e.Data["self"] = ptr
 	checkVerdict(t, "Validate cyclic pointer", e.Validate(), envelope.ErrDepth)
+
+	slice := make([]any, 1)
+	slice[0] = slice
+	e.Data["self"] = slice
+	checkVerdict(t, "Validate cyclic slice", e.Validate(), envelope.ErrDepth)
 }
 
 type textMarshalerString string

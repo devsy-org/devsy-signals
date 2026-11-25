@@ -11,39 +11,89 @@ func (e Envelope) checkData() error {
 	if e.Kind == KindAudit || e.Data == nil {
 		return nil
 	}
-	if err := dataValueErr(reflect.ValueOf(e.Data), 2); err != nil {
+	seen := make(dataChecks)
+	if err := seen.valueErr(reflect.ValueOf(e.Data), 2); err != nil {
 		return fmt.Errorf("data: %w", err)
 	}
 	return nil
 }
 
-func dataValueErr(v reflect.Value, depth int) error {
+type dataChecks map[dataVisit]struct{}
+
+type dataVisit struct {
+	ptr   uintptr
+	typ   reflect.Type
+	len   int
+	depth int
+}
+
+func (seen dataChecks) valueErr(v reflect.Value, depth int) error {
 	v, err := indirectDataValue(v)
 	if err != nil {
 		return err
 	}
-	if dataContainer(v) && depth > maxDepth {
-		return fmt.Errorf("%w: limit is %d", ErrDepth, maxDepth)
-	}
-	switch v.Kind() {
-	case reflect.Map:
-		return dataMapErr(v, depth)
-	case reflect.Slice, reflect.Array:
-		return dataElementsErr(v, depth)
-	default:
+	if !dataContainer(v) {
 		return dataLeafErr(v)
 	}
+	if depth > maxDepth {
+		return fmt.Errorf("%w: limit is %d", ErrDepth, maxDepth)
+	}
+	visit := newDataVisit(v, depth)
+	if _, ok := seen[visit]; ok {
+		return nil
+	}
+	if err := seen.containerErr(v, depth); err != nil {
+		return err
+	}
+	if visit.ptr != 0 {
+		seen[visit] = struct{}{}
+	}
+	return nil
+}
+
+func newDataVisit(v reflect.Value, depth int) dataVisit {
+	// A subtree accepted at a shallower position may exceed the limit here.
+	if v.Kind() != reflect.Array {
+		return dataVisit{v.Pointer(), v.Type(), v.Len(), depth}
+	}
+	if v.CanAddr() {
+		return dataVisit{v.Addr().Pointer(), v.Type(), v.Len(), depth}
+	}
+	return dataVisit{}
+}
+
+func (seen dataChecks) containerErr(v reflect.Value, depth int) error {
+	if v.Kind() == reflect.Map {
+		return seen.mapErr(v, depth)
+	}
+	return seen.elementsErr(v, depth)
 }
 
 func dataLeafErr(v reflect.Value) error {
 	switch v.Kind() {
+	case reflect.Invalid, reflect.Slice, reflect.Bool:
+		return nil
+	case reflect.Map:
+		return dataMapTypeErr(v.Type())
 	case reflect.String:
+		if v.Type() == reflect.TypeFor[json.Number]() {
+			return numberErr(v.String())
+		}
 		return wireStringErr(v.String())
+	case reflect.Float32, reflect.Float64:
+		return floatErr(v.Float())
 	case reflect.Struct:
 		return fmt.Errorf("use a map for data objects, got %s", v.Type())
 	default:
+		return dataIntErr(v)
+	}
+}
+
+func dataIntErr(v reflect.Value) error {
+	if integerKind(v.Kind()) {
 		return nil
 	}
+	return fmt.Errorf("unsupported data value type %s", v.Type())
 }
 
 func indirectDataValue(v reflect.Value) (reflect.Value, error) {
@@ -89,31 +139,51 @@ func byteSlice(t reflect.Type) bool {
 	return elem.Kind() == reflect.Uint8 && !wireMarshalerType(reflect.PointerTo(elem))
 }
 
-func dataMapErr(v reflect.Value, depth int) error {
+func (seen dataChecks) mapErr(v reflect.Value, depth int) error {
+	keyTypeErr := dataMapTypeErr(v.Type())
 	iter := v.MapRange()
 	for iter.Next() {
-		key := iter.Key()
-		if err := wireMarshalerErr(key); err != nil {
+		if err := dataKeyErr(iter.Key()); err != nil {
 			return err
 		}
-		if key.Kind() == reflect.String {
-			if err := wireStringErr(key.String()); err != nil {
-				return fmt.Errorf("object key: %w", err)
-			}
+		if keyTypeErr != nil {
+			return keyTypeErr
 		}
-		if err := dataValueErr(iter.Value(), depth+1); err != nil {
+		if err := seen.valueErr(iter.Value(), depth+1); err != nil {
 			return err
+		}
+	}
+	return keyTypeErr
+}
+
+func dataKeyErr(key reflect.Value) error {
+	key, err := indirectDataValue(key)
+	if err != nil {
+		return err
+	}
+	if key.Kind() == reflect.String {
+		if err := wireStringErr(key.String()); err != nil {
+			return fmt.Errorf("object key: %w", err)
 		}
 	}
 	return nil
 }
 
-func dataElementsErr(v reflect.Value, depth int) error {
-	if v.Kind() == reflect.Slice && byteSlice(v.Type()) {
+func dataMapTypeErr(t reflect.Type) error {
+	kind := t.Key().Kind()
+	if kind == reflect.String || integerKind(kind) {
 		return nil
 	}
+	return fmt.Errorf("unsupported data object key type %s: use string or integer keys", t.Key())
+}
+
+func integerKind(kind reflect.Kind) bool {
+	return kind >= reflect.Int && kind <= reflect.Uintptr
+}
+
+func (seen dataChecks) elementsErr(v reflect.Value, depth int) error {
 	for i := range v.Len() {
-		if err := dataValueErr(v.Index(i), depth+1); err != nil {
+		if err := seen.valueErr(v.Index(i), depth+1); err != nil {
 			return fmt.Errorf("element %d: %w", i, err)
 		}
 	}

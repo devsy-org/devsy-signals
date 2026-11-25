@@ -295,10 +295,7 @@ func attrElementErr(v reflect.Value) error {
 
 func scalarErr(v any) error {
 	if n, ok := v.(json.Number); ok {
-		if !numberRE.MatchString(string(n)) {
-			return fmt.Errorf("invalid number %q", string(n))
-		}
-		return nil
+		return numberErr(string(n))
 	}
 	rv := reflect.ValueOf(v)
 	switch rv.Kind() {
@@ -306,13 +303,25 @@ func scalarErr(v any) error {
 		return stringErr(rv.String())
 	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return nil
-	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+	case reflect.Uint,
+		reflect.Uint8,
+		reflect.Uint16,
+		reflect.Uint32,
+		reflect.Uint64,
+		reflect.Uintptr:
 		return nil
 	case reflect.Float32, reflect.Float64:
 		return floatErr(rv.Float())
 	default:
 		return fmt.Errorf("unsupported value type %T", v)
 	}
+}
+
+func numberErr(n string) error {
+	if !numberRE.MatchString(n) {
+		return fmt.Errorf("invalid number %q", n)
+	}
+	return nil
 }
 
 func stringErr(s string) error {
