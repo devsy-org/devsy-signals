@@ -215,15 +215,15 @@ func TestLoadInventoryRequiresIntegerClassExits(t *testing.T) {
 	}
 }
 
-func TestLoadInventoryUnderscoreExits(t *testing.T) {
+func TestLoadInventoryExitForms(t *testing.T) {
 	t.Parallel()
-	for _, value := range underscoreRejects() {
+	for _, value := range exitRejects() {
 		_, err := registry.LoadInventory(
 			strings.NewReader("classes: {internal: " + value + "}\ncodes: []\n"),
 		)
 		require.ErrorContains(t, err, wantInteger, value)
 	}
-	for _, value := range underscoreAccepts() {
+	for _, value := range exitAccepts() {
 		_, err := registry.LoadInventory(
 			strings.NewReader("classes: {internal: " + value + "}\ncodes: []\n"),
 		)

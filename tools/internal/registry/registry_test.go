@@ -270,32 +270,71 @@ func TestParseRequiresIntegerEntryExit(t *testing.T) {
 	}
 }
 
-func underscoreRejects() []string {
-	return []string{"0_17", "+0_17", "0_1", "00_1", "1__0", "1_", "0_", "0x_1", "_1"}
+func exitRejects() []string {
+	return []string{
+		"1_0",
+		"0_17",
+		"+0_17",
+		"0_1",
+		"00_1",
+		"1__0",
+		"1_",
+		"0_",
+		"0x_1",
+		"0b_1",
+		"0_b1",
+		"0B_1",
+		"0_B1",
+		"_1",
+		"017",
+		"00",
+		"08",
+		"0x",
+		"0o8",
+		"0b2",
+		"125.9",
+		`"125"`,
+		"'125'",
+		`!!int "125"`,
+	}
 }
 
-func underscoreAccepts() []string {
-	return []string{"1_0", "1_2_3", "0x1_0", "0o1_7", "0b1_0"}
+func exitAccepts() []string {
+	return []string{
+		"125",
+		"130",
+		"1",
+		"+5",
+		"0x7D",
+		"0X7D",
+		"0o17",
+		"0O17",
+		"0b101",
+		"0B101",
+		"+0X1A",
+	}
 }
 
-func TestParseUnderscoreExits(t *testing.T) {
+func TestParseExitForms(t *testing.T) {
 	t.Parallel()
-	for _, value := range underscoreRejects() {
+	const prefix = "  - {code: a.b, class: canceled, retryable: false, summary: s, exit: "
+	for _, value := range exitRejects() {
 		t.Run("class "+value, func(t *testing.T) {
 			t.Parallel()
-			_, err := registry.Parse([]byte("classes: {internal: " + value + "}\ncodes: []\n"))
+			_, err := registry.Parse([]byte("classes: {canceled: " + value + "}\ncodes: []\n"))
 			require.ErrorContains(t, err, wantInteger)
 		})
 		t.Run("entry "+value, func(t *testing.T) {
 			t.Parallel()
-			entry := "  - {code: a.b, class: internal, retryable: false, summary: s, exit: " + value + "}\n"
-			_, err := registry.Parse([]byte("classes: {internal: 1}\ncodes:\n" + entry))
+			_, err := registry.Parse(
+				[]byte("classes: {canceled: 130}\ncodes:\n" + prefix + value + "}\n"),
+			)
 			require.ErrorContains(t, err, wantInteger)
 		})
 	}
-	for _, value := range underscoreAccepts() {
-		entry := "  - {code: a.b, class: internal, retryable: false, summary: s, exit: " + value + "}\n"
-		_, err := registry.Parse([]byte("classes: {internal: " + value + "}\ncodes:\n" + entry))
+	for _, value := range exitAccepts() {
+		_, err := registry.Parse([]byte(
+			"classes: {canceled: " + value + "}\ncodes:\n" + prefix + value + "}\n"))
 		require.NoError(t, err, value)
 	}
 }

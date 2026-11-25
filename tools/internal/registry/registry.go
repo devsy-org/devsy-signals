@@ -17,11 +17,12 @@ import (
 )
 
 var (
-	codeRE = regexp.MustCompile(`^[a-z][a-z0-9_]*\.[a-z0-9_]+$`)
-	// intDigitsRE matches the digits of an integer after its sign, with single
-	// underscores between digits and an optional radix prefix.
-	intDigitsRE = regexp.MustCompile(`^(0[xob])?[0-9a-fA-F]+(_[0-9a-fA-F]+)*$`)
-	classRE     = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
+	codeRE  = regexp.MustCompile(`^[a-z][a-z0-9_]*\.[a-z0-9_]+$`)
+	classRE = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
+	// exitRE is the one accepted spelling of an exit value: a decimal without
+	// leading zeros, or a 0x, 0o or 0b radix form, with an optional sign.
+	exitRE = regexp.MustCompile(
+		`^[+-]?(0|[1-9][0-9]*|0([xX][0-9a-fA-F]+|[oO][0-7]+|[bB][01]+))$`)
 )
 
 // Entry is one registered error code.
@@ -93,12 +94,12 @@ func (b *strictBool) UnmarshalYAML(n *yaml.Node) error {
 
 // strictInt accepts only an unquoted scalar that yaml.v3 tags !!int. That
 // excludes floats such as 125.9, booleans, null, quoted strings and a quoted
-// value forced with an explicit tag (!!int "125"). Plain integers with a
-// leading zero (017, 00) are refused because YAML 1.1 reads them as octal and
-// YAML 1.2 as decimal. yaml.v3 drops underscores before it decodes, so the
-// leading-zero test runs on the digits without them, and an underscore must sit
-// between two digits (1_0 is fine, 0_17, 1__0, 1_ and 0x_1 are not). The
-// explicit 0x, 0o and 0b radixes stay (0x7E is 126 and fails the range check).
+// value forced with an explicit tag (!!int "125"). The spelling must also
+// match exitRE, one canonical form: yaml.v3 strips underscores before it
+// decodes and reads a leading zero as octal, where YAML 1.2 reads decimal, so
+// exits never contain an underscore or a leading-zero decimal (1_0, 017, 0_17
+// and 0b_1 are refused). The radix forms stay (0x7E is 126 and fails the range
+// check).
 type strictInt int
 
 func (i *strictInt) UnmarshalYAML(n *yaml.Node) error {
@@ -115,12 +116,7 @@ func plainInt(n *yaml.Node) bool {
 	if n.Kind != yaml.ScalarNode || n.Tag != "!!int" || n.Style&quoted != 0 {
 		return false
 	}
-	digits := strings.TrimLeft(n.Value, "+-")
-	if !intDigitsRE.MatchString(digits) {
-		return false
-	}
-	digits = strings.ReplaceAll(digits, "_", "")
-	return len(digits) < 2 || digits[0] != '0' || digits[1] < '0' || digits[1] > '9'
+	return exitRE.MatchString(n.Value)
 }
 
 // exitValues converts decoded class exits. A null value decodes to nil and is
