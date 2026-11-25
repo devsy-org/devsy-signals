@@ -92,15 +92,8 @@ func validAuditText(rule, defaults auditRule, text string) bool {
 	return utf8.ValidString(text) && strings.IndexByte(text, 0) < 0 &&
 		len(text) >= auditLimit(rule.MinBytes, defaults.MinBytes) &&
 		len(text) <= auditLimit(rule.MaxBytes, defaults.MaxBytes) &&
-		(rule.Enum == nil || slices.Contains(rule.Enum, text)) && matchesAuditPattern(rule.Pattern, text)
-}
-
-func matchesAuditPattern(pattern, text string) bool {
-	if pattern == "" {
-		return true
-	}
-	ok, err := regexp.MatchString(pattern, text)
-	return err == nil && ok
+		(rule.Enum == nil || slices.Contains(rule.Enum, text)) &&
+		(rule.compiledPattern == nil || rule.compiledPattern.MatchString(text))
 }
 
 func matchesAuditFormat(format, text string) bool {
