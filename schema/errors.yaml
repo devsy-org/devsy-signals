@@ -1,6 +1,7 @@
 # Registry of error codes. Go constants and TypeScript types are generated from
 # this file: run `cd tools && go run ./cmd/gencodes` after editing it.
 # Codes are never renamed or reused. Each exit value must match its class.
+# Class exits are 1 to 125; only class canceled may use 130.
 classes:
   internal: 1
   usage: 2

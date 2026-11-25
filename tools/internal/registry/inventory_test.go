@@ -25,6 +25,7 @@ func TestPublishedInventory(t *testing.T) {
 	t.Cleanup(func() { require.NoError(t, inventory.Close()) })
 	published, err := registry.LoadInventory(inventory)
 	require.NoError(t, err)
+	require.True(t, published.HasClassExits())
 	require.NoError(t, registry.CheckInventory(f, published))
 }
 
@@ -120,5 +121,112 @@ func TestRetryableMustBeYAMLBoolean(t *testing.T) {
 			", status: active}\n"
 		_, err := registry.LoadInventory(strings.NewReader(inventory))
 		require.NoError(t, err)
+	}
+}
+
+func TestLoadInventoryRejectsMalformedCodes(t *testing.T) {
+	t.Parallel()
+	for _, code := range []string{"Bad.Code", "a.B", "a.", "a.b.c", "failure.x y", "class", ".a", "a b", "a.b\\u202e"} {
+		t.Run(code, func(t *testing.T) {
+			t.Parallel()
+			src := "codes:\n  - {code: \"" + code + "\", class: internal, retryable: false, status: active}\n"
+			_, err := registry.LoadInventory(strings.NewReader(src))
+			require.ErrorContains(t, err, "must have the form domain.reason")
+		})
+	}
+	for _, code := range []string{"unknown", "x1.y2", "a_b.c_d"} {
+		src := "codes:\n  - {code: " + code + ", class: internal, retryable: false, status: active}\n"
+		_, err := registry.LoadInventory(strings.NewReader(src))
+		require.NoError(t, err, code)
+	}
+}
+
+func TestInventoryClassExits(t *testing.T) {
+	t.Parallel()
+	const entry = "  - {code: sample.error, class: internal, retryable: false, status: active}\n"
+	load := func(classes string) registry.Inventory {
+		inv, err := registry.LoadInventory(strings.NewReader(classes + "codes:\n" + entry))
+		require.NoError(t, err)
+		return inv
+	}
+	old, current := load(""), load("classes: {internal: 1, usage: 2}\n")
+	require.False(t, old.HasClassExits())
+	require.True(t, current.HasClassExits())
+
+	require.NoError(t, registry.CheckAppendOnly(old, current))
+	require.NoError(t, registry.CheckAppendOnly(current, current))
+	require.ErrorContains(
+		t,
+		registry.CheckAppendOnly(current, load("classes: {internal: 3, usage: 2}\n")),
+		`class "internal" changed exit from 1 to 3`,
+	)
+	require.ErrorContains(t, registry.CheckAppendOnly(current, load("classes: {internal: 1}\n")),
+		`class "usage" was removed`)
+	require.ErrorContains(t, registry.CheckAppendOnly(current, old), `class "internal" was removed`)
+}
+
+func TestCheckInventoryClassExits(t *testing.T) {
+	t.Parallel()
+	f := registry.File{
+		Classes: map[string]int{"internal": 1},
+		Codes:   []registry.Entry{{Code: sampleCode, Class: sampleClass}},
+	}
+	const entry = "  - {code: sample.error, class: internal, retryable: false, status: active}\n"
+	for classes, want := range map[string]string{
+		"classes: {internal: 1}\n":           "",
+		"":                                   "",
+		"classes: {internal: 2}\n":           `class "internal" has exit 1 in the registry but 2 in the inventory`,
+		"classes: {internal: 1, usage: 2}\n": `inventory class "usage" is missing from the registry`,
+		"classes: {}\n":                      `class "internal" is missing from the inventory`,
+	} {
+		inv, err := registry.LoadInventory(strings.NewReader(classes + "codes:\n" + entry))
+		require.NoError(t, err)
+		err = registry.CheckInventory(f, inv)
+		if want == "" {
+			require.NoError(t, err, classes)
+			continue
+		}
+		require.ErrorContains(t, err, want, classes)
+	}
+}
+
+func TestLoadInventoryRequiresIntegerClassExits(t *testing.T) {
+	t.Parallel()
+	for name, value := range map[string]string{
+		"float class":    "1.9",
+		"exponent class": "1e0", "quoted class": `"1"`,
+		"bool class": "True", "null class": "Null", "tilde class": "~",
+		"leading zero class": "017", "leading eight class": "08", "double zero class": "00",
+		"tagged class": `!!int "1"`,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := registry.LoadInventory(
+				strings.NewReader("classes: {internal: " + value + "}\ncodes: []\n"),
+			)
+			require.ErrorContains(t, err, wantInteger)
+		})
+	}
+	for _, value := range []string{"1"} {
+		_, err := registry.LoadInventory(
+			strings.NewReader("classes: {internal: " + value + "}\ncodes: []\n"),
+		)
+		require.NoError(t, err, value)
+	}
+}
+
+func TestLoadInventoryExitForms(t *testing.T) {
+	t.Parallel()
+	for _, value := range exitRejects() {
+		_, err := registry.LoadInventory(
+			strings.NewReader("classes: {internal: " + value + "}\ncodes: []\n"),
+		)
+		require.ErrorContains(t, err, wantInteger, value)
+	}
+	for _, value := range exitAccepts() {
+		_, err := registry.LoadInventory(
+			strings.NewReader("classes: {internal: " + value + "}\ncodes: []\n"),
+		)
+		require.NoError(t, err, value)
 	}
 }

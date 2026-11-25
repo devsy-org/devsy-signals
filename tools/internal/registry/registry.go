@@ -6,9 +6,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
 )
@@ -16,6 +19,9 @@ import (
 var (
 	codeRE  = regexp.MustCompile(`^[a-z][a-z0-9_]*\.[a-z0-9_]+$`)
 	classRE = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
+	// exitRE is the one accepted spelling of an exit value: unsigned decimal
+	// without leading zeros.
+	exitRE = regexp.MustCompile(`^(0|[1-9][0-9]*)$`)
 )
 
 // Entry is one registered error code.
@@ -85,36 +91,119 @@ func (b *strictBool) UnmarshalYAML(n *yaml.Node) error {
 	return nil
 }
 
+// strictInt accepts only an unquoted scalar that yaml.v3 tags !!int. That
+// excludes floats such as 125.9, booleans, null, quoted strings and a quoted
+// value forced with an explicit tag (!!int "125"). The spelling must also
+// match exitRE, one canonical form: plain unsigned decimal. yaml.v3 strips
+// underscores before it decodes and reads a leading zero as octal, where YAML
+// 1.2 reads decimal, and exits never need a sign or a radix, so underscores,
+// leading zeros, signs and 0x, 0o and 0b prefixes are all refused (1_0, 017,
+// +5, 0x7D). Zero passes here and fails the range check.
+type strictInt int
+
+func (i *strictInt) UnmarshalYAML(n *yaml.Node) error {
+	var v int
+	if !plainInt(n) || n.Decode(&v) != nil {
+		return fmt.Errorf("line %d: exit must be an integer", n.Line)
+	}
+	*i = strictInt(v)
+	return nil
+}
+
+func plainInt(n *yaml.Node) bool {
+	const quoted = yaml.DoubleQuotedStyle | yaml.SingleQuotedStyle | yaml.LiteralStyle | yaml.FoldedStyle
+	if n.Kind != yaml.ScalarNode || n.Tag != "!!int" || n.Style&quoted != 0 {
+		return false
+	}
+	return exitRE.MatchString(n.Value)
+}
+
+// exitValues converts decoded class exits. A null value decodes to nil and is
+// rejected.
+func exitValues(raw map[string]*strictInt) (map[string]int, error) {
+	exits := make(map[string]int, len(raw))
+	for _, class := range slices.Sorted(maps.Keys(raw)) {
+		if raw[class] == nil {
+			return nil, fmt.Errorf("class %q must set exit to an integer", class)
+		}
+		exits[class] = int(*raw[class])
+	}
+	return exits, nil
+}
+
 type rawEntry struct {
 	Code      string      `yaml:"code"`
 	Class     string      `yaml:"class"`
 	Retryable *strictBool `yaml:"retryable"`
-	Exit      int         `yaml:"exit"`
+	Exit      *strictInt  `yaml:"exit"`
 	Summary   string      `yaml:"summary"`
 }
 
 type rawFile struct {
-	Classes map[string]int `yaml:"classes"`
-	Codes   []rawEntry     `yaml:"codes"`
+	Classes map[string]*strictInt `yaml:"classes"`
+	Codes   []rawEntry            `yaml:"codes"`
 }
 
 func (r rawFile) file() (File, error) {
-	f := File{Classes: r.Classes}
+	classes, err := exitValues(r.Classes)
+	if err != nil {
+		return File{}, err
+	}
+	f := File{Classes: classes}
 	errs := []error{}
 	for _, e := range r.Codes {
-		if e.Retryable == nil {
-			errs = append(errs, fmt.Errorf("code %q must set retryable to true or false", e.Code))
+		entry, err := e.entry()
+		if err != nil {
+			errs = append(errs, err)
 			continue
 		}
-		f.Codes = append(f.Codes, Entry{
-			Code:      e.Code,
-			Class:     e.Class,
-			Retryable: bool(*e.Retryable),
-			Exit:      e.Exit,
-			Summary:   e.Summary,
-		})
+		f.Codes = append(f.Codes, entry)
 	}
 	return f, errors.Join(errs...)
+}
+
+func (e rawEntry) entry() (Entry, error) {
+	switch {
+	case e.Retryable == nil:
+		return Entry{}, fmt.Errorf("code %q must set retryable to true or false", e.Code)
+	case e.Exit == nil:
+		return Entry{}, fmt.Errorf("code %q must set exit to an integer", e.Code)
+	}
+	return Entry{
+		Code:      e.Code,
+		Class:     e.Class,
+		Retryable: bool(*e.Retryable),
+		Exit:      int(*e.Exit),
+		Summary:   e.Summary,
+	}, nil
+}
+
+const (
+	minExit = 1
+	maxExit = 125 // shells reserve 0 and 126 and above
+
+	// signalClass alone may use signalExit, the 128+SIGINT convention for a
+	// canceled run, which falls outside the shell-safe range.
+	signalClass = "canceled"
+	signalExit  = 130
+)
+
+func checkClassExit(class string, exit int) error {
+	switch {
+	case class == signalClass && exit == signalExit:
+		return nil
+	case exit == signalExit:
+		return fmt.Errorf("class %q exit %d is reserved for class %s", class, exit, signalClass)
+	case exit < minExit || exit > maxExit:
+		return fmt.Errorf(
+			"class %q exit %d must be between %d and %d",
+			class,
+			exit,
+			minExit,
+			maxExit,
+		)
+	}
+	return nil
 }
 
 // Validate checks code format, uniqueness, class membership, exit codes and
@@ -124,9 +213,12 @@ func (f File) Validate() error {
 	if len(f.Classes) == 0 {
 		errs = append(errs, errors.New("classes is empty"))
 	}
-	for class := range f.Classes {
+	for class, exit := range f.Classes {
 		if !classRE.MatchString(class) {
 			errs = append(errs, fmt.Errorf("class %q must be lowercase snake_case", class))
+		}
+		if err := checkClassExit(class, exit); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	reserved := f.reservedNames()
@@ -140,8 +232,18 @@ func (f File) Validate() error {
 	return errors.Join(errs...)
 }
 
+// GeneratedNames returns the top-level names the generated package declares
+// besides the class and code constants. A test parses the generated file to
+// keep this list complete.
+func GeneratedNames() []string {
+	return []string{"Class", "Code", "Info", "Lookup", "All"}
+}
+
 func (f File) reservedNames() map[string]bool {
-	reserved := map[string]bool{"Class": true, "Info": true, "Lookup": true, "All": true}
+	reserved := map[string]bool{}
+	for _, name := range GeneratedNames() {
+		reserved[name] = true
+	}
 	for class := range f.Classes {
 		reserved[ConstName("class."+class)] = true
 	}
@@ -183,12 +285,35 @@ func (f File) checkEntry(e Entry, seen, reserved map[string]bool) error {
 		return fmt.Errorf("code %q has exit %d, class %s needs %d", e.Code, e.Exit, e.Class, exit)
 	case reserved[ConstName(e.Code)]:
 		return fmt.Errorf("code %q generates the reserved Go name %s", e.Code, ConstName(e.Code))
-	case strings.TrimSpace(e.Summary) == "":
-		return fmt.Errorf("code %q summary must not be blank", e.Code)
-	case strings.ContainsAny(e.Summary, "\r\n\v\f\u0085\u2028\u2029"):
-		return fmt.Errorf("code %q summary must be a single line", e.Code)
+	}
+	return checkSummary(e.Code, e.Summary)
+}
+
+const lineBreaks = "\r\n\v\f\u0085\u2028\u2029"
+
+func checkSummary(code, summary string) error {
+	if strings.TrimSpace(summary) == "" {
+		return fmt.Errorf("code %q summary must not be blank", code)
+	}
+	if strings.ContainsAny(summary, lineBreaks) {
+		return fmt.Errorf("code %q summary must be a single line", code)
+	}
+	if strings.IndexFunc(summary, unsafeRune) >= 0 {
+		return fmt.Errorf(
+			"code %q summary must not contain control characters, bidirectional formatting "+
+				"characters, U+180E or a byte order mark (U+FEFF)", code)
 	}
 	return nil
+}
+
+// unsafeRune reports control characters, the Bidi_Control set (the Arabic
+// letter mark, marks, embeddings, overrides and isolates) and U+180E, which
+// Unicode now classes as a format character. U+FEFF is refused because the Go
+// compiler rejects it inside the generated source. Other format characters
+// such as U+00AD, U+200B to U+200D and U+2060 to U+2064 stay accepted.
+func unsafeRune(r rune) bool {
+	return unicode.IsControl(r) || unicode.Is(unicode.Bidi_Control, r) ||
+		r == '\u180e' || r == '\ufeff'
 }
 
 func validCode(code string) bool {

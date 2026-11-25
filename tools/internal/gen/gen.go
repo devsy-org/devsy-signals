@@ -130,11 +130,17 @@ const (
 {{- end}}
 )
 
+// Code is a registered error code.
+type Code string
+
+// String returns the code text.
+func (c Code) String() string { return string(c) }
+
 // Registered error codes.
 const (
 {{- range .Codes}}
 	// {{.Const}}: {{.Summary}}
-	{{.Const}} = {{quote .Code}}
+	{{.Const}} Code = {{quote .Code}}
 {{- end}}
 )
 
@@ -152,21 +158,21 @@ var classExit = map[Class]int{
 {{- end}}
 }
 
-var registry = map[string]Info{
+var registry = map[Code]Info{
 {{- range .Codes}}
 	{{.Const}}: {Class: {{.ClassName}}, Retryable: {{.Retryable}}, Exit: {{.Exit}}, Summary: {{quote .Summary}}},
 {{- end}}
 }
 
 // Lookup returns the registry entry for code.
-func Lookup(code string) (Info, bool) {
-	info, ok := registry[code]
+func Lookup[T ~string](code T) (Info, bool) {
+	info, ok := registry[Code(code)]
 	return info, ok
 }
 
 // All returns every registered code in sorted order.
-func All() []string {
-	return []string{
+func All() []Code {
+	return []Code{
 {{- range .Codes}}
 		{{.Const}},
 {{- end}}
