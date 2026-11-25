@@ -87,21 +87,31 @@ func newInventory(size int) Inventory {
 	}
 }
 
-func (i *Inventory) addPublished(entry rawPublishedCode) error {
+func checkPublished(entry rawPublishedCode) error {
 	switch {
 	case entry.Code == "" || entry.Class == "" || entry.Retryable == nil:
 		return fmt.Errorf("inventory code %q must set code, class and retryable", entry.Code)
+	case !entry.Retryable.ok:
+		return fmt.Errorf(
+			"inventory code %q: line %d: %s", entry.Code, entry.Retryable.line, errRetryable)
 	case !validCode(entry.Code):
 		return fmt.Errorf("inventory code %q must have the form domain.reason", entry.Code)
 	case entry.Status != activeStatus && entry.Status != retiredStatus:
 		return fmt.Errorf("inventory code %q has invalid status %q", entry.Code, entry.Status)
+	}
+	return nil
+}
+
+func (i *Inventory) addPublished(entry rawPublishedCode) error {
+	if err := checkPublished(entry); err != nil {
+		return err
 	}
 	if _, dup := i.entries[entry.Code]; dup {
 		return fmt.Errorf("inventory code %q is listed twice", entry.Code)
 	}
 	i.add(entry.Code, publishedCode{
 		class:     entry.Class,
-		retryable: bool(*entry.Retryable),
+		retryable: entry.Retryable.value,
 		retired:   entry.Status == retiredStatus,
 	})
 	return nil

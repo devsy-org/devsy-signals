@@ -65,7 +65,11 @@ func Parse(data []byte) (File, error) {
 }
 
 func decodeYAML(src io.Reader, name string, dst any) error {
-	dec := yaml.NewDecoder(src)
+	data, err := io.ReadAll(src)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", name, err)
+	}
+	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
 	if err := dec.Decode(dst); err != nil {
 		return fmt.Errorf("decode %s: %w", name, err)
@@ -74,19 +78,25 @@ func decodeYAML(src io.Reader, name string, dst any) error {
 	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
 		return fmt.Errorf("%s must hold exactly one YAML document", name)
 	}
-	return nil
+	return checkBareTags(data)
 }
 
 // strictBool accepts only the YAML true and false literals. yaml.v3 otherwise
-// reads the YAML 1.1 words on, off, yes and no into a bool.
-type strictBool bool
+// reads the YAML 1.1 words on, off, yes and no into a bool. A refused value
+// leaves ok false and keeps its line, so the caller can name the code.
+type strictBool struct {
+	value bool
+	ok    bool
+	line  int
+}
 
 func (b *strictBool) UnmarshalYAML(n *yaml.Node) error {
 	var v bool
+	*b = strictBool{line: n.Line}
 	if decorated(n) || n.Kind != yaml.ScalarNode || n.Tag != "!!bool" || n.Decode(&v) != nil {
-		return fmt.Errorf("line %d: retryable must be true or false", n.Line)
+		return nil
 	}
-	*b = strictBool(v)
+	b.value, b.ok = v, true
 	return nil
 }
 
@@ -122,6 +132,8 @@ func (i *strictInt) UnmarshalYAML(n *yaml.Node) error {
 	*i = strictInt{value: v, plain: true}
 	return nil
 }
+
+const errRetryable = "retryable must be true or false"
 
 const errPlainExit = "exit must be a plain integer without a tag, anchor or alias"
 
@@ -186,13 +198,15 @@ func (e rawEntry) entry() (Entry, error) {
 		return Entry{}, fmt.Errorf("code %q must set retryable to true or false", e.Code)
 	case e.Exit == nil:
 		return Entry{}, fmt.Errorf("code %q must set exit to an integer", e.Code)
+	case !e.Retryable.ok:
+		return Entry{}, fmt.Errorf("code %q: line %d: %s", e.Code, e.Retryable.line, errRetryable)
 	case !e.Exit.plain:
 		return Entry{}, fmt.Errorf("code %q: %s", e.Code, errPlainExit)
 	}
 	return Entry{
 		Code:      e.Code,
 		Class:     e.Class,
-		Retryable: bool(*e.Retryable),
+		Retryable: e.Retryable.value,
 		Exit:      e.Exit.value,
 		Summary:   e.Summary,
 	}, nil
