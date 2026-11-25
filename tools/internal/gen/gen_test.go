@@ -81,28 +81,46 @@ func TestRenderQuotesTypeScriptStringsAsJSON(t *testing.T) {
 	assert.Contains(t, string(tsSrc), `summary: "A \"quote\", \\ and \u0007 \u003ctag\u003e."`)
 }
 
-func TestReservedNamesCoverGeneratedDeclarations(t *testing.T) {
-	t.Parallel()
-	f := registry.File{
-		Classes: map[string]int{classInternal: 1},
-		Codes:   []registry.Entry{{Code: "a.b", Class: classInternal, Exit: 1, Summary: "s"}},
-	}
+func renderedNames(t *testing.T, f registry.File) []string {
+	t.Helper()
 	goSrc, _, err := gen.Render(f)
 	require.NoError(t, err)
 	parsed, err := parser.ParseFile(token.NewFileSet(), "codes_gen.go", goSrc, 0)
 	require.NoError(t, err)
+	return topLevelNames(parsed)
+}
 
-	generated := []string{"ClassInternal", "AB"}
+// An empty registry leaves no generated constants, so every exported name the
+// template declares must be one of the fixed reserved names, and the reverse.
+func TestReservedNamesMatchTemplateDeclarations(t *testing.T) {
+	t.Parallel()
+	declared := renderedNames(t, registry.File{})
 	reserved := registry.GeneratedNames()
-	for _, name := range topLevelNames(parsed) {
-		switch {
-		case !ast.IsExported(name), slices.Contains(generated, name):
-		default:
+	for _, name := range declared {
+		if ast.IsExported(name) {
 			assert.Contains(t, reserved, name, "generated %s is not reserved", name)
 		}
 	}
 	for _, name := range reserved {
-		assert.Contains(t, topLevelNames(parsed), name, "reserved %s is not declared", name)
+		assert.Contains(t, declared, name, "reserved %s is not declared", name)
+	}
+}
+
+func TestRealRegistryNamesAreReservedOrGenerated(t *testing.T) {
+	t.Parallel()
+	f, err := registry.Load(filepath.Join(root, "schema", "errors.yaml"))
+	require.NoError(t, err)
+	allowed := registry.GeneratedNames()
+	for class := range f.Classes {
+		allowed = append(allowed, "Class"+registry.ConstName(class))
+	}
+	for _, e := range f.Codes {
+		allowed = append(allowed, registry.ConstName(e.Code))
+	}
+	for _, name := range renderedNames(t, f) {
+		if ast.IsExported(name) {
+			assert.True(t, slices.Contains(allowed, name), "unexpected generated name %s", name)
+		}
 	}
 }
 
