@@ -88,18 +88,30 @@ func (b *strictBool) UnmarshalYAML(n *yaml.Node) error {
 	return nil
 }
 
-// strictInt accepts only a scalar that yaml.v3 tags !!int. That excludes
-// floats such as 125.9, quoted strings, booleans and null. It keeps the
-// hex and 0o forms yaml.v3 tags !!int (0x7E is 126 and fails the range check).
+// strictInt accepts only an unquoted scalar that yaml.v3 tags !!int. That
+// excludes floats such as 125.9, booleans, null, quoted strings and a quoted
+// value forced with an explicit tag (!!int "125"). Plain integers with a
+// leading zero (017, 00) are refused because YAML 1.1 reads them as octal and
+// YAML 1.2 as decimal. The explicit 0x, 0o and 0b radixes stay (0x7E is 126
+// and fails the range check).
 type strictInt int
 
 func (i *strictInt) UnmarshalYAML(n *yaml.Node) error {
 	var v int
-	if n.Kind != yaml.ScalarNode || n.Tag != "!!int" || n.Decode(&v) != nil {
+	if !plainInt(n) || n.Decode(&v) != nil {
 		return fmt.Errorf("line %d: exit must be an integer", n.Line)
 	}
 	*i = strictInt(v)
 	return nil
+}
+
+func plainInt(n *yaml.Node) bool {
+	const quoted = yaml.DoubleQuotedStyle | yaml.SingleQuotedStyle | yaml.LiteralStyle | yaml.FoldedStyle
+	if n.Kind != yaml.ScalarNode || n.Tag != "!!int" || n.Style&quoted != 0 {
+		return false
+	}
+	digits := strings.TrimLeft(n.Value, "+-")
+	return len(digits) < 2 || digits[0] != '0' || digits[1] < '0' || digits[1] > '9'
 }
 
 // exitValues converts decoded class exits. A null value decodes to nil and is

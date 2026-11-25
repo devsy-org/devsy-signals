@@ -226,6 +226,14 @@ func TestParseRequiresIntegerExits(t *testing.T) {
 		"bool exit":      {"True", wantInteger},
 		"null exit":      {"Null", wantInteger},
 		"tilde exit":     {"~", wantInteger},
+		"leading zero":   {"017", wantInteger},
+		"leading eight":  {"08", wantInteger},
+		"double zero":    {"00", wantInteger},
+		"signed zero":    {"+07", wantInteger},
+		"tagged quoted":  {`!!int "125"`, wantInteger},
+		"tagged single":  {"!!int '125'", wantInteger},
+		"plain zero":     {"0", "must be between"},
+		"binary":         {"0b101", ""},
 		"hex":            {"0x7E", "must be between"},
 		"octal 0o":       {"0o17", ""},
 		"plain":          {"7", ""},
@@ -249,6 +257,7 @@ func TestParseRequiresIntegerEntryExit(t *testing.T) {
 		"float entry":  ", exit: 1.5",
 		"quoted entry": `, exit: "1"`,
 		"null entry":   ", exit: null",
+		"zero entry":   ", exit: 01",
 		"absent":       "",
 	} {
 		t.Run(name, func(t *testing.T) {
