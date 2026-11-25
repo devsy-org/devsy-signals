@@ -102,6 +102,23 @@
       "if": {
         "properties": {
           "kind": {
+            "enum": ["status", "result", "error"]
+          }
+        },
+        "required": ["kind"]
+      },
+      "then": {
+        "properties": {
+          "type": {
+            "pattern": "^[a-z][a-z0-9_]*\\.[a-z][a-z0-9_]*$"
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "kind": {
             "enum": [
               "log"
             ]
@@ -222,7 +239,10 @@
         "properties": {
           "msg": false,
           "level": false,
-          "attrs": false
+          "attrs": false,
+          "type": {
+            "$ref": "#/$defs/auditType"
+          }
         }
       }
     },
@@ -234,7 +254,7 @@
           },
           "type": {
             "not": {
-              "const": "policy.apply"
+              "enum": ["policy.apply", "pool.start"]
             }
           }
         },
@@ -250,6 +270,26 @@
     }
   ],
   "$defs": {
+    "auditType": {
+      "enum": [
+        "session.request",
+        "session.spawn",
+        "session.ready",
+        "session.start",
+        "session.idle",
+        "session.end",
+        "session.reclaim",
+        "policy.apply",
+        "pool.start",
+        "credential.issue",
+        "credential.use",
+        "credential.deny",
+        "credential.revoke",
+        "egress.deny",
+        "egress.allow.summary",
+        "egress.allow"
+      ]
+    },
     "versionHash": {
       "type": "string",
       "pattern": "^sha256:[0-9a-f]{64}$"

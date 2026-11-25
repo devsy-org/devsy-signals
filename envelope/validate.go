@@ -19,7 +19,6 @@ const (
 	MaxAttrKeyBytes   = 128
 	MaxAttrValueBytes = 4096
 	maxTypeBytes      = 128
-	policyApply       = "policy.apply"
 )
 
 var (
@@ -31,6 +30,7 @@ var (
 	traceIDRE = regexp.MustCompile(`^[0-9a-f]{32}$`)
 	spanIDRE  = regexp.MustCompile(`^[0-9a-f]{16}$`)
 	versionRE = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
+	typeRE    = regexp.MustCompile(`^[a-z][a-z0-9_]*\.[a-z][a-z0-9_]*$`)
 )
 
 type problems []error
@@ -58,9 +58,25 @@ func (e Envelope) checkHeader() error {
 	p.add(validTS(e.TS), "ts %q must be RFC 3339 UTC with milliseconds", e.TS)
 	p.add(e.Src.Known(), "src %q is not a known source", e.Src)
 	p.add(e.Level == "" || e.Level.Known(), "level %q is not a known level", e.Level)
-	p.add(e.Type == "" || validKey(e.Type, maxTypeBytes), "type %q is malformed", e.Type)
+	p.add(
+		e.Type == "" || validRecordType(e.Kind, e.Type),
+		"type %q is invalid for kind %s",
+		e.Type,
+		e.Kind,
+	)
 	p.add(e.ID == "" || ulidRE.MatchString(e.ID), "id %q is not a ULID", e.ID)
 	return errors.Join(p...)
+}
+
+func validRecordType(kind Kind, typ string) bool {
+	switch kind {
+	case KindAudit:
+		return slices.Contains(AuditTypes(), typ)
+	case KindStatus, KindResult, KindError:
+		return len(typ) <= maxTypeBytes && typeRE.MatchString(typ)
+	default:
+		return validKey(typ, maxTypeBytes)
+	}
 }
 
 func (e Envelope) checkRequired() error {
@@ -68,7 +84,7 @@ func (e Envelope) checkRequired() error {
 	for _, field := range e.missingFields() {
 		p.add(false, "%s is required for kind %s", field, e.Kind)
 	}
-	p.add(e.Kind != KindAudit || e.Type == policyApply || e.Session != "",
+	p.add(e.Kind != KindAudit || !AuditTypeRequiresSession(e.Type) || e.Session != "",
 		"session is required for audit type %q", e.Type)
 	return errors.Join(p...)
 }
