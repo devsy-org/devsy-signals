@@ -73,6 +73,8 @@ func (i *Inventory) addPublished(entry rawPublishedCode) error {
 	switch {
 	case entry.Code == "" || entry.Class == "" || entry.Retryable == nil:
 		return fmt.Errorf("inventory code %q must set code, class and retryable", entry.Code)
+	case !validCode(entry.Code):
+		return fmt.Errorf("inventory code %q must have the form domain.reason", entry.Code)
 	case entry.Status != activeStatus && entry.Status != retiredStatus:
 		return fmt.Errorf("inventory code %q has invalid status %q", entry.Code, entry.Status)
 	}

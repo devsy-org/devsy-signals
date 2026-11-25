@@ -122,3 +122,20 @@ func TestRetryableMustBeYAMLBoolean(t *testing.T) {
 		require.NoError(t, err)
 	}
 }
+
+func TestLoadInventoryRejectsMalformedCodes(t *testing.T) {
+	t.Parallel()
+	for _, code := range []string{"Bad.Code", "a.B", "a.", "a.b.c", "failure.x y", "class", ".a", "a b", "a.b\\u202e"} {
+		t.Run(code, func(t *testing.T) {
+			t.Parallel()
+			src := "codes:\n  - {code: \"" + code + "\", class: internal, retryable: false, status: active}\n"
+			_, err := registry.LoadInventory(strings.NewReader(src))
+			require.ErrorContains(t, err, "must have the form domain.reason")
+		})
+	}
+	for _, code := range []string{"unknown", "x1.y2", "a_b.c_d"} {
+		src := "codes:\n  - {code: " + code + ", class: internal, retryable: false, status: active}\n"
+		_, err := registry.LoadInventory(strings.NewReader(src))
+		require.NoError(t, err, code)
+	}
+}
