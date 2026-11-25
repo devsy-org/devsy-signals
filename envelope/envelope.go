@@ -5,6 +5,7 @@
 package envelope
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"time"
@@ -121,11 +122,13 @@ func (e Envelope) MarshalJSON() ([]byte, error) {
 	if e.Attrs != nil {
 		w.Attrs = &e.Attrs
 	}
-	out, err := json.Marshal(w)
-	if err != nil {
+	var out bytes.Buffer
+	enc := json.NewEncoder(&out)
+	enc.SetEscapeHTML(false)
+	if err := enc.Encode(w); err != nil {
 		return nil, fmt.Errorf("marshal envelope: %w", err)
 	}
-	return out, nil
+	return bytes.TrimSuffix(out.Bytes(), []byte{'\n'}), nil
 }
 
 // FormatTime formats t as an envelope ts value.
