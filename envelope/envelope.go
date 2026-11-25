@@ -122,8 +122,9 @@ func (k ActorKind) Known() bool {
 // data is required on some kinds and an empty object satisfies that.
 // It emits literal <, >, and & with no trailing newline. Use this method
 // directly or a [json.Encoder] with SetEscapeHTML(false) for literal output.
-// Plain [json.Marshal] escapes these characters. Both forms decode to the
-// same record.
+// Plain [json.Marshal] escapes these characters. Both forms represent the
+// same record, but the 64 KiB decoder limit applies to the emitted bytes.
+// Use the literal form for records near the limit.
 func (e Envelope) MarshalJSON() ([]byte, error) {
 	type plain Envelope
 	w := struct {

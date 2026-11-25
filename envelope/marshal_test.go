@@ -84,6 +84,24 @@ func TestMarshalJSONPreservesEmptyMaps(t *testing.T) {
 	}
 }
 
+func TestMarshalEscapingCountsTowardDecodeLimit(t *testing.T) {
+	t.Parallel()
+	e := resultRecord(t)
+	e.Data["output"] = strings.Repeat("<", 11000)
+	literal := mustMarshalJSON(t, e)
+	encoded, err := json.Marshal(e)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(encoded)-len(literal) != 55000 {
+		t.Errorf("literal and escaped lengths: got %d and %d", len(literal), len(encoded))
+	}
+	_, err = envelope.DecodeStrict(literal)
+	checkVerdict(t, "literal form", err, nil)
+	_, err = envelope.DecodeStrict(encoded)
+	checkVerdict(t, "escaped form", err, envelope.ErrTooLarge)
+}
+
 func checkWireFragments(t *testing.T, wire []byte, fragments ...string) {
 	t.Helper()
 	for _, fragment := range fragments {

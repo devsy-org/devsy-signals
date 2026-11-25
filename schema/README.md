@@ -8,4 +8,4 @@ The Go decoder limits a raw record to 64 KiB before parsing. JSON Schema sees th
 
 The schema rejects NUL in decoded string values and object keys at every allowed depth, matching the Go decoder. NUL fixtures belong in the shared invalid corpus.
 
-Writers that need literal `<`, `>`, and `&` can call `Envelope.MarshalJSON` directly or use a `json.Encoder` with `SetEscapeHTML(false)`. Plain `json.Marshal` escapes those characters. Both are valid JSON and decode to the same record.
+Writers that need literal `<`, `>`, and `&` can call `Envelope.MarshalJSON` directly or use a `json.Encoder` with `SetEscapeHTML(false)`. Plain `json.Marshal` escapes those characters. Both forms represent the same record, but the 64 KiB decoder limit applies to the emitted bytes. Use the literal form for records near the limit.
