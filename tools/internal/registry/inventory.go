@@ -37,8 +37,8 @@ type rawPublishedCode struct {
 // LoadInventory reads a published inventory with strict YAML decoding.
 func LoadInventory(src io.Reader) (Inventory, error) {
 	var raw struct {
-		Classes map[string]int      `yaml:"classes"`
-		Codes   []*rawPublishedCode `yaml:"codes"`
+		Classes map[string]*strictInt `yaml:"classes"`
+		Codes   []*rawPublishedCode   `yaml:"codes"`
 	}
 	if err := decodeYAML(src, "errors.published.yaml", &raw); err != nil {
 		return Inventory{}, err
@@ -47,7 +47,13 @@ func LoadInventory(src io.Reader) (Inventory, error) {
 		return Inventory{}, errors.New("errors.published.yaml must set a codes list")
 	}
 	inventory := newInventory(len(raw.Codes))
-	inventory.classes = raw.Classes
+	if raw.Classes != nil {
+		classes, err := exitValues(raw.Classes)
+		if err != nil {
+			return Inventory{}, err
+		}
+		inventory.classes = classes
+	}
 	for pos, entry := range raw.Codes {
 		if entry == nil {
 			return Inventory{}, fmt.Errorf("inventory entry %d is null", pos)

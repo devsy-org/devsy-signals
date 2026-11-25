@@ -9,6 +9,8 @@ import (
 	"github.com/devsy-org/devsy-signals/tools/internal/registry"
 )
 
+const wantInteger = "integer"
+
 const header = "classes: {internal: 1, transient: 75}\ncodes:\n"
 
 func TestLoadSeedRegistry(t *testing.T) {
@@ -206,6 +208,50 @@ func TestParseChecksClassExitRange(t *testing.T) {
 				return
 			}
 			require.ErrorContains(t, err, "class \""+tc.want+"\" exit")
+		})
+	}
+}
+
+func TestParseRequiresIntegerExits(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct{ value, want string }{
+		"float exit":     {"125.9", wantInteger},
+		"float 130 exit": {"130.9", wantInteger},
+		"exponent exit":  {"1e2", wantInteger},
+		"quoted exit":    {`"2"`, wantInteger},
+		"bool exit":      {"True", wantInteger},
+		"null exit":      {"Null", wantInteger},
+		"tilde exit":     {"~", wantInteger},
+		"hex":            {"0x7E", "must be between"},
+		"octal 0o":       {"0o17", ""},
+		"plain":          {"7", ""},
+		"hex in range":   {"0x7D", ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := registry.Parse([]byte("classes: {usage: " + tc.value + "}\ncodes: []\n"))
+			if tc.want == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tc.want)
+		})
+	}
+}
+
+func TestParseRequiresIntegerEntryExit(t *testing.T) {
+	t.Parallel()
+	for name, exit := range map[string]string{
+		"float entry":  ", exit: 1.5",
+		"quoted entry": `, exit: "1"`,
+		"null entry":   ", exit: null",
+		"absent":       "",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			entry := "  - {code: a.b, class: internal, retryable: false, summary: s" + exit + "}\n"
+			_, err := registry.Parse([]byte(header + entry))
+			require.ErrorContains(t, err, wantInteger)
 		})
 	}
 }

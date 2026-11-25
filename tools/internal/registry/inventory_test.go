@@ -189,3 +189,22 @@ func TestCheckInventoryClassExits(t *testing.T) {
 		require.ErrorContains(t, err, want, classes)
 	}
 }
+
+func TestLoadInventoryRequiresIntegerClassExits(t *testing.T) {
+	t.Parallel()
+	for name, value := range map[string]string{
+		"float class":    "1.9",
+		"exponent class": "1e0", "quoted class": `"1"`,
+		"bool class": "True", "null class": "Null", "tilde class": "~",
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := registry.LoadInventory(
+				strings.NewReader("classes: {internal: " + value + "}\ncodes: []\n"),
+			)
+			require.ErrorContains(t, err, wantInteger)
+		})
+	}
+	_, err := registry.LoadInventory(strings.NewReader("classes: {internal: 1}\ncodes: []\n"))
+	require.NoError(t, err)
+}

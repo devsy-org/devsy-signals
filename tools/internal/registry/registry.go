@@ -6,8 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"regexp"
+	"slices"
 	"strings"
 	"unicode"
 
@@ -86,36 +88,78 @@ func (b *strictBool) UnmarshalYAML(n *yaml.Node) error {
 	return nil
 }
 
+// strictInt accepts only a scalar that yaml.v3 tags !!int. That excludes
+// floats such as 125.9, quoted strings, booleans and null. It keeps the
+// hex and 0o forms yaml.v3 tags !!int (0x7E is 126 and fails the range check).
+type strictInt int
+
+func (i *strictInt) UnmarshalYAML(n *yaml.Node) error {
+	var v int
+	if n.Kind != yaml.ScalarNode || n.Tag != "!!int" || n.Decode(&v) != nil {
+		return fmt.Errorf("line %d: exit must be an integer", n.Line)
+	}
+	*i = strictInt(v)
+	return nil
+}
+
+// exitValues converts decoded class exits. A null value decodes to nil and is
+// rejected.
+func exitValues(raw map[string]*strictInt) (map[string]int, error) {
+	exits := make(map[string]int, len(raw))
+	for _, class := range slices.Sorted(maps.Keys(raw)) {
+		if raw[class] == nil {
+			return nil, fmt.Errorf("class %q must set exit to an integer", class)
+		}
+		exits[class] = int(*raw[class])
+	}
+	return exits, nil
+}
+
 type rawEntry struct {
 	Code      string      `yaml:"code"`
 	Class     string      `yaml:"class"`
 	Retryable *strictBool `yaml:"retryable"`
-	Exit      int         `yaml:"exit"`
+	Exit      *strictInt  `yaml:"exit"`
 	Summary   string      `yaml:"summary"`
 }
 
 type rawFile struct {
-	Classes map[string]int `yaml:"classes"`
-	Codes   []rawEntry     `yaml:"codes"`
+	Classes map[string]*strictInt `yaml:"classes"`
+	Codes   []rawEntry            `yaml:"codes"`
 }
 
 func (r rawFile) file() (File, error) {
-	f := File{Classes: r.Classes}
+	classes, err := exitValues(r.Classes)
+	if err != nil {
+		return File{}, err
+	}
+	f := File{Classes: classes}
 	errs := []error{}
 	for _, e := range r.Codes {
-		if e.Retryable == nil {
-			errs = append(errs, fmt.Errorf("code %q must set retryable to true or false", e.Code))
+		entry, err := e.entry()
+		if err != nil {
+			errs = append(errs, err)
 			continue
 		}
-		f.Codes = append(f.Codes, Entry{
-			Code:      e.Code,
-			Class:     e.Class,
-			Retryable: bool(*e.Retryable),
-			Exit:      e.Exit,
-			Summary:   e.Summary,
-		})
+		f.Codes = append(f.Codes, entry)
 	}
 	return f, errors.Join(errs...)
+}
+
+func (e rawEntry) entry() (Entry, error) {
+	switch {
+	case e.Retryable == nil:
+		return Entry{}, fmt.Errorf("code %q must set retryable to true or false", e.Code)
+	case e.Exit == nil:
+		return Entry{}, fmt.Errorf("code %q must set exit to an integer", e.Code)
+	}
+	return Entry{
+		Code:      e.Code,
+		Class:     e.Class,
+		Retryable: bool(*e.Retryable),
+		Exit:      int(*e.Exit),
+		Summary:   e.Summary,
+	}, nil
 }
 
 const (
