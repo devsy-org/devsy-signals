@@ -10,6 +10,25 @@ import (
 
 var codeRE = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$`)
 
+func TestCodesAreTyped(t *testing.T) {
+	t.Parallel()
+	if got := textOf(codes.Timeout); got != "timeout" {
+		t.Errorf("String() = %q", got)
+	}
+	if len(typedAll(codes.All())) == 0 {
+		t.Fatal("no codes")
+	}
+	byString, okString := codes.Lookup("timeout")
+	byCode, okCode := codes.Lookup(codes.Timeout)
+	if !okString || !okCode || byString != byCode {
+		t.Errorf("Lookup differs: %+v/%v vs %+v/%v", byString, okString, byCode, okCode)
+	}
+}
+
+func textOf(c codes.Code) string { return c.String() }
+
+func typedAll(all []codes.Code) []codes.Code { return all }
+
 func TestLookup(t *testing.T) {
 	t.Parallel()
 	info, ok := codes.Lookup(codes.APIRateLimited)
@@ -32,7 +51,7 @@ func TestRegistryIsConsistent(t *testing.T) {
 		if !ok {
 			t.Fatalf("%s listed but not found", code)
 		}
-		if !codeRE.MatchString(code) {
+		if !codeRE.MatchString(code.String()) {
 			t.Errorf("%s has a bad format", code)
 		}
 		if !info.Class.Known() || info.Class.Exit() != info.Exit {

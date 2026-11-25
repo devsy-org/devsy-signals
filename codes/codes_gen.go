@@ -17,84 +17,90 @@ const (
 	ClassUsage            Class = "usage"
 )
 
+// Code is a registered error code.
+type Code string
+
+// String returns the code text.
+func (c Code) String() string { return string(c) }
+
 // Registered error codes.
 const (
 	// APIRateLimited: A remote API rejected the request because of rate limits.
-	APIRateLimited = "api.rate_limited"
+	APIRateLimited Code = "api.rate_limited"
 	// BuildFailedRecoverable: A build failed in a way a rerun with a fallback can fix.
-	BuildFailedRecoverable = "build.failed_recoverable"
+	BuildFailedRecoverable Code = "build.failed_recoverable"
 	// Canceled: The operation was canceled by the user or a parent context.
-	Canceled = "canceled"
+	Canceled Code = "canceled"
 	// ConfigInvalid: A configuration value is invalid.
-	ConfigInvalid = "config.invalid"
+	ConfigInvalid Code = "config.invalid"
 	// DockerDaemonUnreachable: The Docker daemon could not be reached.
-	DockerDaemonUnreachable = "docker.daemon_unreachable"
+	DockerDaemonUnreachable Code = "docker.daemon_unreachable"
 	// InputRequired: A required input was missing and no prompt was possible.
-	InputRequired = "input.required"
+	InputRequired Code = "input.required"
 	// InternalPanic: A panic was recovered.
-	InternalPanic = "internal.panic"
+	InternalPanic Code = "internal.panic"
 	// ProviderAuthExpired: The provider credentials expired and need to be renewed.
-	ProviderAuthExpired = "provider.auth_expired"
+	ProviderAuthExpired Code = "provider.auth_expired"
 	// ProviderAuthFailed: The provider rejected the credentials.
-	ProviderAuthFailed = "provider.auth_failed"
+	ProviderAuthFailed Code = "provider.auth_failed"
 	// ProviderInvalidConfig: The provider options are invalid.
-	ProviderInvalidConfig = "provider.invalid_config"
+	ProviderInvalidConfig Code = "provider.invalid_config"
 	// ProviderNotFound: The provider resource does not exist.
-	ProviderNotFound = "provider.not_found"
+	ProviderNotFound Code = "provider.not_found"
 	// ProviderQuotaExceeded: The provider account is over a quota or limit.
-	ProviderQuotaExceeded = "provider.quota_exceeded"
+	ProviderQuotaExceeded Code = "provider.quota_exceeded"
 	// ProviderUnavailable: The provider service is temporarily unavailable.
-	ProviderUnavailable = "provider.unavailable"
+	ProviderUnavailable Code = "provider.unavailable"
 	// ProviderUnreachable: The provider endpoint could not be reached.
-	ProviderUnreachable = "provider.unreachable"
+	ProviderUnreachable Code = "provider.unreachable"
 	// RuntimeAlreadyExists: The runtime resource already exists.
-	RuntimeAlreadyExists = "runtime.already_exists"
+	RuntimeAlreadyExists Code = "runtime.already_exists"
 	// RuntimeCanceled: The runtime operation was canceled.
-	RuntimeCanceled = "runtime.canceled"
+	RuntimeCanceled Code = "runtime.canceled"
 	// RuntimeFailedPrecondition: The runtime state does not allow the operation.
-	RuntimeFailedPrecondition = "runtime.failed_precondition"
+	RuntimeFailedPrecondition Code = "runtime.failed_precondition"
 	// RuntimeFailure: The runtime operation failed for an internal reason.
-	RuntimeFailure = "runtime.failure"
+	RuntimeFailure Code = "runtime.failure"
 	// RuntimeIncompatibleVersion: The runtime version is not compatible with this client.
-	RuntimeIncompatibleVersion = "runtime.incompatible_version"
+	RuntimeIncompatibleVersion Code = "runtime.incompatible_version"
 	// RuntimeInvalidArgument: The runtime rejected an argument.
-	RuntimeInvalidArgument = "runtime.invalid_argument"
+	RuntimeInvalidArgument Code = "runtime.invalid_argument"
 	// RuntimeNotFound: The runtime could not find the requested resource.
-	RuntimeNotFound = "runtime.not_found"
+	RuntimeNotFound Code = "runtime.not_found"
 	// RuntimePermissionDenied: The runtime denied permission for the operation.
-	RuntimePermissionDenied = "runtime.permission_denied"
+	RuntimePermissionDenied Code = "runtime.permission_denied"
 	// RuntimeTimeout: The runtime operation exceeded its deadline.
-	RuntimeTimeout = "runtime.timeout"
+	RuntimeTimeout Code = "runtime.timeout"
 	// RuntimeUnavailable: The runtime is temporarily unavailable.
-	RuntimeUnavailable = "runtime.unavailable"
+	RuntimeUnavailable Code = "runtime.unavailable"
 	// RuntimeUnknown: The runtime reported an unknown error.
-	RuntimeUnknown = "runtime.unknown"
+	RuntimeUnknown Code = "runtime.unknown"
 	// RuntimeUnsupported: The runtime does not support the requested operation.
-	RuntimeUnsupported = "runtime.unsupported"
+	RuntimeUnsupported Code = "runtime.unsupported"
 	// SecretBackendUnavailable: No secret backend is available on this host.
-	SecretBackendUnavailable = "secret.backend_unavailable"
+	SecretBackendUnavailable Code = "secret.backend_unavailable"
 	// SecretNotFound: A referenced secret does not exist.
-	SecretNotFound = "secret.not_found"
+	SecretNotFound Code = "secret.not_found"
 	// SecretStoreCorrupt: The secret store data is unreadable.
-	SecretStoreCorrupt = "secret.store_corrupt"
+	SecretStoreCorrupt Code = "secret.store_corrupt"
 	// SecretUnlockFailed: Unlocking the secret store failed.
-	SecretUnlockFailed = "secret.unlock_failed"
+	SecretUnlockFailed Code = "secret.unlock_failed"
 	// SecretUnlockRequired: The secret store is locked and needs to be unlocked.
-	SecretUnlockRequired = "secret.unlock_required"
+	SecretUnlockRequired Code = "secret.unlock_required"
 	// SSHAuthFailed: SSH authentication was rejected.
-	SSHAuthFailed = "ssh.auth_failed"
+	SSHAuthFailed Code = "ssh.auth_failed"
 	// SSHCommandFailed: A command run over SSH exited with an error.
-	SSHCommandFailed = "ssh.command_failed"
+	SSHCommandFailed Code = "ssh.command_failed"
 	// SSHHandshakeTimeout: The SSH handshake timed out.
-	SSHHandshakeTimeout = "ssh.handshake_timeout"
+	SSHHandshakeTimeout Code = "ssh.handshake_timeout"
 	// SSHHostKeyFailed: The SSH host key did not match or could not be verified.
-	SSHHostKeyFailed = "ssh.host_key_failed"
+	SSHHostKeyFailed Code = "ssh.host_key_failed"
 	// SSHUnreachable: The SSH host could not be reached.
-	SSHUnreachable = "ssh.unreachable"
+	SSHUnreachable Code = "ssh.unreachable"
 	// Timeout: The operation exceeded its deadline.
-	Timeout = "timeout"
+	Timeout Code = "timeout"
 	// Unknown: An error with no registered code.
-	Unknown = "unknown"
+	Unknown Code = "unknown"
 )
 
 // Info is the registry entry for a code.
@@ -116,7 +122,7 @@ var classExit = map[Class]int{
 	ClassUsage:            2,
 }
 
-var registry = map[string]Info{
+var registry = map[Code]Info{
 	APIRateLimited:             {Class: ClassTransient, Retryable: true, Exit: 75, Summary: "A remote API rejected the request because of rate limits."},
 	BuildFailedRecoverable:     {Class: ClassRecoverableBuild, Retryable: true, Exit: 79, Summary: "A build failed in a way a rerun with a fallback can fix."},
 	Canceled:                   {Class: ClassCanceled, Retryable: false, Exit: 130, Summary: "The operation was canceled by the user or a parent context."},
@@ -158,14 +164,14 @@ var registry = map[string]Info{
 }
 
 // Lookup returns the registry entry for code.
-func Lookup(code string) (Info, bool) {
-	info, ok := registry[code]
+func Lookup[T ~string](code T) (Info, bool) {
+	info, ok := registry[Code(code)]
 	return info, ok
 }
 
 // All returns every registered code in sorted order.
-func All() []string {
-	return []string{
+func All() []Code {
+	return []Code{
 		APIRateLimited,
 		BuildFailedRecoverable,
 		Canceled,

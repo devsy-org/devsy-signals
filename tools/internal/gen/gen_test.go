@@ -59,7 +59,7 @@ func TestRenderNames(t *testing.T) {
 	}
 	goSrc, _, err := gen.Render(f)
 	require.NoError(t, err)
-	assert.Contains(t, string(goSrc), "SSHAuthFailed = \"ssh.auth_failed\"")
+	assert.Contains(t, string(goSrc), "SSHAuthFailed Code = \"ssh.auth_failed\"")
 	assert.Contains(t, string(goSrc), "ClassTransient Class = \"transient\"")
 }
 
