@@ -303,6 +303,43 @@ func TestDecodeStrictAcceptsKnownProviderSource(t *testing.T) {
 	checkBoth(t, `{"v":1,"src":"provider/docker-v2.1_arm"}`, nil)
 }
 
+func TestDecodeConfigVersion(t *testing.T) {
+	t.Parallel()
+	for _, c := range []struct {
+		name, value, want, strictReason string
+	}{
+		{"arbitrary string", `"future-format"`, "future-format", ""},
+		{"empty string", `""`, "", "must not be empty"},
+		{"non-string", `42`, "", "has the wrong type"},
+		{"null value", `null`, "", "is null"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			t.Parallel()
+			in := []byte(`{"v":1,"configVersion":` + c.value + `}`)
+			e, err := envelope.Decode(in)
+			if err != nil || e.ConfigVersion != c.want {
+				t.Errorf("Decode: got configVersion %q, %v; want %q", e.ConfigVersion, err, c.want)
+			}
+			checkStrictConfigVersion(t, in, c.want, c.strictReason)
+		})
+	}
+}
+
+func checkStrictConfigVersion(t *testing.T, in []byte, want, reason string) {
+	t.Helper()
+	e, err := envelope.DecodeStrict(in)
+	if reason != "" {
+		if !errors.Is(err, envelope.ErrStrict) ||
+			!strings.Contains(err.Error(), "envelope.configVersion "+reason) {
+			t.Errorf("DecodeStrict: got %v; want ErrStrict for configVersion: %s", err, reason)
+		}
+		return
+	}
+	if err != nil || e.ConfigVersion != want {
+		t.Errorf("DecodeStrict: got configVersion %q, %v; want %q", e.ConfigVersion, err, want)
+	}
+}
+
 func tolerantOnly(t *testing.T, in string) envelope.Envelope {
 	t.Helper()
 	e, err := envelope.Decode([]byte(in))

@@ -44,6 +44,7 @@ func readEnvelope(f *recordFields) Envelope {
 		Pool:              readOptionalString(f, "pool"),
 		Host:              readOptionalString(f, "host"),
 		PolicyVersion:     readOptionalString(f, "policyVersion"),
+		ConfigVersion:     readOptionalString(f, "configVersion"),
 		Actor:             readObject(f, "actor", readActor),
 		Error:             readObject(f, "error", readError),
 		Data:              readField[map[string]any](f, "data"),
