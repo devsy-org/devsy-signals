@@ -11,7 +11,6 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"unicode"
 
 	"gopkg.in/yaml.v3"
 )
@@ -287,33 +286,6 @@ func (f File) checkEntry(e Entry, seen, reserved map[string]bool) error {
 		return fmt.Errorf("code %q generates the reserved Go name %s", e.Code, ConstName(e.Code))
 	}
 	return checkSummary(e.Code, e.Summary)
-}
-
-const lineBreaks = "\r\n\v\f\u0085\u2028\u2029"
-
-func checkSummary(code, summary string) error {
-	if strings.TrimSpace(summary) == "" {
-		return fmt.Errorf("code %q summary must not be blank", code)
-	}
-	if strings.ContainsAny(summary, lineBreaks) {
-		return fmt.Errorf("code %q summary must be a single line", code)
-	}
-	if strings.IndexFunc(summary, unsafeRune) >= 0 {
-		return fmt.Errorf(
-			"code %q summary must not contain control characters, bidirectional formatting "+
-				"characters, U+180E or a byte order mark (U+FEFF)", code)
-	}
-	return nil
-}
-
-// unsafeRune reports control characters, the Bidi_Control set (the Arabic
-// letter mark, marks, embeddings, overrides and isolates) and U+180E, which
-// Unicode now classes as a format character. U+FEFF is refused because the Go
-// compiler rejects it inside the generated source. Other format characters
-// such as U+00AD, U+200B to U+200D and U+2060 to U+2064 stay accepted.
-func unsafeRune(r rune) bool {
-	return unicode.IsControl(r) || unicode.Is(unicode.Bidi_Control, r) ||
-		r == '\u180e' || r == '\ufeff'
 }
 
 func validCode(code string) bool {
