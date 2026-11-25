@@ -288,6 +288,21 @@ func TestDecodeStrictAcceptsKnownProviderSource(t *testing.T) {
 	checkBoth(t, `{"v":1,"src":"provider/docker-v2.1_arm"}`, nil)
 }
 
+func TestDecodeStrictRequiresRetryable(t *testing.T) {
+	t.Parallel()
+	in := []byte(errorWith(`"code":"a.b","message":"m","class":"internal"`))
+	e, err := envelope.Decode(in)
+	if err != nil || e.Error == nil || e.Error.Retryable {
+		t.Fatalf("Decode: got %+v, %v; want an error with retryable false", e.Error, err)
+	}
+	_, err = envelope.DecodeStrict(in)
+	if !errors.Is(err, envelope.ErrStrict) ||
+		!strings.Contains(err.Error(), "envelope.error.retryable is required") {
+		t.Errorf("DecodeStrict: got %v; want ErrStrict for missing error.retryable", err)
+	}
+	checkBoth(t, errorWith(errBody), nil)
+}
+
 func TestDecodeConfigVersion(t *testing.T) {
 	t.Parallel()
 	for _, c := range []struct {
