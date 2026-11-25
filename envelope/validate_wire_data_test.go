@@ -115,7 +115,7 @@ func TestValidateSharedData(t *testing.T) {
 	e := resultRecord(t)
 	e.Data["payload"] = sharedData(18)
 	start := time.Now()
-	checkVerdict(t, "Validate shared data", e.Validate(), nil)
+	checkVerdict(t, "Validate shared data", e.Validate(), envelope.ErrTooLarge)
 	if elapsed := time.Since(start); elapsed > 5*time.Millisecond {
 		t.Errorf("validation took %v, want under 5ms", elapsed)
 	}
@@ -144,7 +144,7 @@ func sharedData(levels int) any {
 }
 
 func BenchmarkValidateSharedData(b *testing.B) {
-	for _, n := range []int{8, 12, 16} {
+	for _, n := range []int{8, 12, 15} {
 		b.Run(strconv.Itoa(n), func(b *testing.B) {
 			e := resultRecord(b)
 			e.Data["payload"] = sharedData(n)

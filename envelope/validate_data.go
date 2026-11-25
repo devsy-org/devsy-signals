@@ -12,7 +12,7 @@ func (e Envelope) checkData() error {
 		return nil
 	}
 	// Every visited value uses at least one byte in the expanded wire record.
-	checks := dataChecks{seen: make(map[dataVisit]struct{}), remaining: maxRecordBytes}
+	checks := dataChecks{seen: make(map[dataVisit]int), remaining: maxRecordBytes}
 	if err := checks.valueErr(reflect.ValueOf(e.Data), 2); err != nil {
 		return fmt.Errorf("data: %w", err)
 	}
@@ -20,8 +20,10 @@ func (e Envelope) checkData() error {
 }
 
 type dataChecks struct {
-	seen      map[dataVisit]struct{}
+	seen      map[dataVisit]int
 	remaining int
+	pointers  map[pointerVisit]pointerTarget
+	path      []pointerVisit
 }
 
 type dataVisit struct {
@@ -32,15 +34,11 @@ type dataVisit struct {
 }
 
 func (c *dataChecks) valueErr(v reflect.Value, depth int) error {
-	if c.remaining == 0 {
-		return fmt.Errorf(
-			"%w: expanded data exceeds the %d-value traversal limit",
-			ErrTooLarge,
-			maxRecordBytes,
-		)
+	before := c.remaining
+	if err := c.charge(1); err != nil {
+		return err
 	}
-	c.remaining--
-	v, err := indirectDataValue(v)
+	v, err := c.indirectDataValue(v)
 	if err != nil {
 		return err
 	}
@@ -50,15 +48,31 @@ func (c *dataChecks) valueErr(v reflect.Value, depth int) error {
 	if depth > maxDepth {
 		return fmt.Errorf("%w: limit is %d", ErrDepth, maxDepth)
 	}
+	return c.visitContainer(v, depth, before)
+}
+
+func (c *dataChecks) charge(visits int) error {
+	if visits > c.remaining {
+		return fmt.Errorf(
+			"%w: expanded data exceeds the %d-value traversal limit",
+			ErrTooLarge,
+			maxRecordBytes,
+		)
+	}
+	c.remaining -= visits
+	return nil
+}
+
+func (c *dataChecks) visitContainer(v reflect.Value, depth, before int) error {
 	visit := newDataVisit(v, depth)
-	if _, ok := c.seen[visit]; ok {
-		return nil
+	if count := c.seen[visit]; count != 0 {
+		return c.charge(count - 1)
 	}
 	if err := c.containerErr(v, depth); err != nil {
 		return err
 	}
 	if visit.ptr != 0 {
-		c.seen[visit] = struct{}{}
+		c.seen[visit] = before - c.remaining
 	}
 	return nil
 }
@@ -108,31 +122,6 @@ func dataIntErr(v reflect.Value) error {
 	return fmt.Errorf("unsupported data value type %s", v.Type())
 }
 
-func indirectDataValue(v reflect.Value) (reflect.Value, error) {
-	var pointers map[reflect.Value]struct{}
-	for v.IsValid() {
-		if err := wireMarshalerErr(v); err != nil {
-			return reflect.Value{}, err
-		}
-		switch v.Kind() {
-		case reflect.Interface:
-			v = v.Elem()
-		case reflect.Pointer:
-			if _, seen := pointers[v]; seen {
-				return reflect.Value{}, fmt.Errorf("%w: cyclic pointer in data", ErrDepth)
-			}
-			if pointers == nil {
-				pointers = make(map[reflect.Value]struct{})
-			}
-			pointers[v] = struct{}{}
-			v = v.Elem()
-		default:
-			return v, nil
-		}
-	}
-	return v, nil
-}
-
 func dataContainer(v reflect.Value) bool {
 	switch v.Kind() {
 	case reflect.Map:
@@ -155,7 +144,7 @@ func (c *dataChecks) mapErr(v reflect.Value, depth int) error {
 	keyTypeErr := dataMapTypeErr(v.Type())
 	iter := v.MapRange()
 	for iter.Next() {
-		if err := dataKeyErr(iter.Key()); err != nil {
+		if err := c.dataKeyErr(iter.Key()); err != nil {
 			return err
 		}
 		if keyTypeErr != nil {
@@ -168,8 +157,8 @@ func (c *dataChecks) mapErr(v reflect.Value, depth int) error {
 	return keyTypeErr
 }
 
-func dataKeyErr(key reflect.Value) error {
-	key, err := indirectDataValue(key)
+func (c *dataChecks) dataKeyErr(key reflect.Value) error {
+	key, err := c.indirectDataValue(key)
 	if err != nil {
 		return err
 	}
