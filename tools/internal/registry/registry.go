@@ -216,8 +216,18 @@ func (f File) Validate() error {
 	return errors.Join(errs...)
 }
 
+// GeneratedNames returns the top-level names the generated package declares
+// besides the class and code constants. A test parses the generated file to
+// keep this list complete.
+func GeneratedNames() []string {
+	return []string{"Class", "Code", "Info", "Lookup", "All"}
+}
+
 func (f File) reservedNames() map[string]bool {
-	reserved := map[string]bool{"Class": true, "Info": true, "Lookup": true, "All": true}
+	reserved := map[string]bool{}
+	for _, name := range GeneratedNames() {
+		reserved[name] = true
+	}
 	for class := range f.Classes {
 		reserved[ConstName("class."+class)] = true
 	}

@@ -12,8 +12,9 @@ var codeRE = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$`)
 
 func TestCodesAreTyped(t *testing.T) {
 	t.Parallel()
-	if got := textOf(codes.Timeout); got != "timeout" {
-		t.Errorf("String() = %q", got)
+	typed, ok := any(codes.Timeout).(codes.Code)
+	if !ok || typed.String() != "timeout" {
+		t.Errorf("codes.Timeout = %#v, want a codes.Code with text timeout", codes.Timeout)
 	}
 	if len(typedAll(codes.All())) == 0 {
 		t.Fatal("no codes")
@@ -24,8 +25,6 @@ func TestCodesAreTyped(t *testing.T) {
 		t.Errorf("Lookup differs: %+v/%v vs %+v/%v", byString, okString, byCode, okCode)
 	}
 }
-
-func textOf(c codes.Code) string { return c.String() }
 
 func typedAll(all []codes.Code) []codes.Code { return all }
 

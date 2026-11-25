@@ -94,7 +94,9 @@ func TestParseRejectsSecondDocument(t *testing.T) {
 
 func TestParseRejectsReservedNames(t *testing.T) {
 	t.Parallel()
-	for _, code := range []string{"class.internal", "class.transient"} {
+	for _, code := range []string{
+		"class.internal", "class.transient", "code._", "info._", "lookup._", "all._", "class._",
+	} {
 		t.Run(code, func(t *testing.T) {
 			t.Parallel()
 			entry := "  - {code: " + code + ", class: internal, retryable: false, exit: 1, summary: s}\n"
