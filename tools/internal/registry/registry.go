@@ -41,9 +41,13 @@ type File struct {
 
 // Load reads and validates the registry at path.
 func Load(path string) (File, error) {
-	data, err := os.ReadFile(path) //nolint:gosec // path comes from the tool flags
+	file, err := os.Open(path) //nolint:gosec // path comes from the tool flags
 	if err != nil {
 		return File{}, fmt.Errorf("read registry: %w", err)
+	}
+	data, err := ReadLimited(file, path)
+	if err := errors.Join(err, file.Close()); err != nil {
+		return File{}, err
 	}
 	return Parse(data)
 }
@@ -66,32 +70,48 @@ func Parse(data []byte) (File, error) {
 }
 
 const (
+	errInteger   = "exit must be an integer"
 	errRetryable = "retryable must be true or false"
 	errPlainExit = "exit must be a plain integer without a tag, anchor or alias"
 
-	// maxFileBytes bounds the registry and inventory files, which hold a few
-	// KB, so the checks below cost a bounded amount of work.
-	maxFileBytes = 1 << 20
+	// MaxFileBytes bounds the registry and inventory files, which hold a few
+	// KB, so the checks on them cost a bounded amount of work.
+	MaxFileBytes = 1 << 20
 
-	utf8BOM = "\xef\xbb\xbf"
+	byteOrderMark = "\xef\xbb\xbf"
 )
 
-// readSource reads a registry file and accepts only UTF-8 without NUL bytes.
-// yaml.v3 also reads BOM-marked UTF-16, which hides bytes from the checks
-// below, so that is refused here. A UTF-8 byte order mark is stripped.
-func readSource(src io.Reader, name string) ([]byte, error) {
-	data, err := io.ReadAll(io.LimitReader(src, maxFileBytes+1))
+// ReadLimited reads src to its end and fails once more than MaxFileBytes are
+// present. It reads at most one byte past the limit, so an oversized file or
+// stream costs about the limit in memory. name appears in the error.
+func ReadLimited(src io.Reader, name string) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(src, MaxFileBytes+1))
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", name, err)
 	}
-	if len(data) > maxFileBytes {
-		return nil, fmt.Errorf("%s is too large: the limit is %d bytes", name, maxFileBytes)
+	if len(data) > MaxFileBytes {
+		return nil, fmt.Errorf("%s is too large: the limit is %d bytes", name, MaxFileBytes)
+	}
+	return data, nil
+}
+
+// readSource reads a registry file and accepts only UTF-8 without NUL bytes
+// or byte order marks. yaml.v3 also reads BOM-marked UTF-16 and silently skips
+// further U+FEFF at the start, which would hide bytes from the position-based
+// checks below, so every U+FEFF is refused, including a single leading one.
+func readSource(src io.Reader, name string) ([]byte, error) {
+	data, err := ReadLimited(src, name)
+	if err != nil {
+		return nil, err
 	}
 	if !utf8.Valid(data) || bytes.IndexByte(data, 0) >= 0 {
 		return nil, fmt.Errorf(
 			"%s must be valid UTF-8 without NUL bytes; UTF-16 and UTF-32 are not supported", name)
 	}
-	return bytes.TrimPrefix(data, []byte(utf8BOM)), nil
+	if bytes.Contains(data, []byte(byteOrderMark)) {
+		return nil, fmt.Errorf("%s must not contain a byte order mark (U+FEFF)", name)
+	}
+	return data, nil
 }
 
 func decodeYAML(src io.Reader, name string, dst any) error {
@@ -139,15 +159,21 @@ func (b *strictBool) UnmarshalYAML(n *yaml.Node) error {
 // yaml.v3 strips underscores before it decodes and reads a leading zero as
 // octal, where YAML 1.2 reads decimal, and exits never need a sign or a radix,
 // so underscores, leading zeros, signs and 0x, 0o and 0b prefixes are all
-// refused (1_0, 017, +5, 0x7D). Zero passes here and fails the range check.
-type strictInt int
+// refused (1_0, 017, +5, 0x7D). Zero passes here and fails the range check. A
+// refused value leaves ok false and keeps its line, so the caller can name the
+// class or code.
+type strictInt struct {
+	value int
+	ok    bool
+	line  int
+}
 
 func (i *strictInt) UnmarshalYAML(n *yaml.Node) error {
 	var v int
-	if !plainInt(n) || n.Decode(&v) != nil {
-		return fmt.Errorf("line %d: exit must be an integer", n.Line)
+	*i = strictInt{line: n.Line}
+	if plainInt(n) && n.Decode(&v) == nil {
+		i.value, i.ok = v, true
 	}
-	*i = strictInt(v)
 	return nil
 }
 
@@ -164,10 +190,13 @@ func plainInt(n *yaml.Node) bool {
 func exitValues(raw map[string]*strictInt) (map[string]int, error) {
 	exits := make(map[string]int, len(raw))
 	for _, class := range slices.Sorted(maps.Keys(raw)) {
-		if raw[class] == nil {
+		switch {
+		case raw[class] == nil:
 			return nil, fmt.Errorf("class %q must set exit to an integer", class)
+		case !raw[class].ok:
+			return nil, fmt.Errorf("class %q: line %d: %s", class, raw[class].line, errInteger)
 		}
-		exits[class] = int(*raw[class])
+		exits[class] = raw[class].value
 	}
 	return exits, nil
 }
@@ -209,6 +238,8 @@ func (e rawEntry) entry() (Entry, error) {
 		return Entry{}, fmt.Errorf("code %q must set retryable to true or false", e.Code)
 	case e.Exit == nil:
 		return Entry{}, fmt.Errorf("code %q must set exit to an integer", e.Code)
+	case !e.Exit.ok:
+		return Entry{}, fmt.Errorf("code %q: line %d: %s", e.Code, e.Exit.line, errInteger)
 	case !e.Retryable.ok:
 		return Entry{}, fmt.Errorf("code %q: line %d: %s", e.Code, e.Retryable.line, errRetryable)
 	}
@@ -216,7 +247,7 @@ func (e rawEntry) entry() (Entry, error) {
 		Code:      e.Code,
 		Class:     e.Class,
 		Retryable: e.Retryable.value,
-		Exit:      int(*e.Exit),
+		Exit:      e.Exit.value,
 		Summary:   e.Summary,
 	}, nil
 }

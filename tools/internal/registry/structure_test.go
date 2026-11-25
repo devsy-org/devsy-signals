@@ -112,13 +112,23 @@ func TestRejectsOtherEncodings(t *testing.T) {
 	}
 }
 
-func TestAcceptsUTF8ByteOrderMark(t *testing.T) {
+func TestRejectsByteOrderMark(t *testing.T) {
 	t.Parallel()
+	const bom = "\ufeff"
 	for lname, load := range loaders() {
-		t.Run(lname, func(t *testing.T) {
-			t.Parallel()
-			require.NoError(t, load([]byte("\xef\xbb\xbf"+validFor(lname))))
-		})
+		src := validFor(lname)
+		for name, data := range map[string]string{
+			"single":      bom + src,
+			"double":      bom + bom + src,
+			"double bare": bom + bom + strings.Replace(src, "{internal: 1}", "{internal: ! 1}", 1),
+			"mid file":    src + "# " + bom + "\n",
+			"in key":      strings.Replace(src, "classes", "cla"+bom+"sses", 1),
+		} {
+			t.Run(lname+" "+name, func(t *testing.T) {
+				t.Parallel()
+				require.ErrorContains(t, load([]byte(data)), "byte order mark")
+			})
+		}
 	}
 }
 
@@ -244,6 +254,41 @@ func TestCheckSummaryRejectsInvalidUTF8(t *testing.T) {
 	t.Parallel()
 	require.ErrorContains(t, registry.CheckSummary("a.b", "x\xffy"), "valid UTF-8")
 	require.NoError(t, registry.CheckSummary("a.b", "x y"))
+}
+
+func TestReadLimitedBoundary(t *testing.T) {
+	t.Parallel()
+	exact := bytes.Repeat([]byte("x"), registry.MaxFileBytes)
+	got, err := registry.ReadLimited(bytes.NewReader(exact), "f.yaml")
+	require.NoError(t, err)
+	require.Len(t, got, registry.MaxFileBytes)
+	_, err = registry.ReadLimited(bytes.NewReader(append(exact, 'x')), "f.yaml")
+	require.ErrorContains(t, err, "f.yaml is too large")
+}
+
+type countingReader struct{ n int }
+
+func (c *countingReader) Read(p []byte) (int, error) {
+	c.n += len(p)
+	return len(p), nil
+}
+
+func TestReadLimitedStopsReading(t *testing.T) {
+	t.Parallel()
+	src := &countingReader{}
+	_, err := registry.ReadLimited(src, "f.yaml")
+	require.ErrorContains(t, err, "too large")
+	require.LessOrEqual(t, src.n, 2*registry.MaxFileBytes)
+}
+
+func TestParseNamesNoncanonicalExit(t *testing.T) {
+	t.Parallel()
+	_, err := registry.Parse([]byte(blockEntry("false", "01")))
+	require.ErrorContains(t, err, `code "a.b"`)
+	require.ErrorContains(t, err, "exit must be an integer")
+	_, err = registry.Parse([]byte(doc("classes: {internal: 01}", "codes: []")))
+	require.ErrorContains(t, err, `class "internal"`)
+	require.ErrorContains(t, err, "exit must be an integer")
 }
 
 func TestLoadInventoryReadsPublishedFile(t *testing.T) {

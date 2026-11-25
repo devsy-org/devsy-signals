@@ -8,7 +8,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -47,7 +46,7 @@ func run(ctx context.Context, root, base string) error {
 	if err != nil || path == "" {
 		return err
 	}
-	previous, err := git(ctx, root, "show", base+":"+path)
+	previous, err := gitBlob(ctx, root, base+":"+path)
 	if err != nil {
 		return err
 	}
@@ -126,11 +125,11 @@ func checkMode(path, mode string, allowed ...string) error {
 	}
 }
 
-func loadBaseline(path, data string) (registry.Inventory, error) {
+func loadBaseline(path string, data []byte) (registry.Inventory, error) {
 	if path == inventoryPath {
-		return registry.LoadInventory(strings.NewReader(data))
+		return registry.LoadInventory(bytes.NewReader(data))
 	}
-	f, err := registry.Parse([]byte(data))
+	f, err := registry.Parse(data)
 	if err != nil {
 		return registry.Inventory{}, err
 	}
@@ -173,9 +172,9 @@ func readInRoot(root, path string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
-	data, err := io.ReadAll(file)
+	data, err := registry.ReadLimited(file, path)
 	if err := errors.Join(err, file.Close()); err != nil {
-		return nil, fmt.Errorf("read %s: %w", path, err)
+		return nil, err
 	}
 	return data, nil
 }
@@ -206,4 +205,28 @@ func git(ctx context.Context, root string, args ...string) (string, error) {
 		return "", fmt.Errorf("git %s: %w", args[0], err)
 	}
 	return string(out), nil
+}
+
+// gitBlob returns one Git object, reading at most the registry file limit. It
+// kills Git when the blob is larger, so a huge historical file is not buffered.
+func gitBlob(ctx context.Context, root, object string) ([]byte, error) {
+	//nolint:gosec // Git gets a fixed subcommand and an object name that cannot be an option.
+	cmd := exec.CommandContext(ctx, "git", "show", object)
+	cmd.Dir = root
+	cmd.Stderr = os.Stderr
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("git show: %w", err)
+	}
+	if err := cmd.Start(); err != nil {
+		return nil, fmt.Errorf("git show: %w", err)
+	}
+	data, readErr := registry.ReadLimited(stdout, object)
+	if readErr != nil {
+		_ = cmd.Process.Kill()
+	}
+	if err := cmd.Wait(); err != nil && readErr == nil {
+		return nil, fmt.Errorf("git show: %w", err)
+	}
+	return data, readErr
 }

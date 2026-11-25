@@ -44,7 +44,6 @@ func TestParseRejectsBareTagOnExit(t *testing.T) {
 		"class tag anchor": doc("classes: {internal: ! &a 1}", "codes: []"),
 		"class next line":  doc("classes:", "  internal: !", "    1", "codes: []"),
 		"class crlf":       crlf(doc("classes:", "  internal: ! 1", "codes: []")),
-		"class bom":        "\ufeff" + doc("classes: {internal: ! 1}", "codes: []"),
 		"entry flow":       flowEntry("s", "false", "! 1"),
 		"entry anchor tag": flowEntry("s", "false", "&a ! 1"),
 		"entry tag anchor": flowEntry("s", "false", "! &a 1"),
@@ -90,7 +89,6 @@ func TestParseKeepsBangInTextAndComments(t *testing.T) {
 		"plain summary":   flowEntry("wow !", "false", "1"),
 		"bang then value": flowEntry(`"! 1"`, "true", "1"),
 		"crlf plain":      crlf(blockEntry("true", "1 # !")),
-		"bom plain":       "\ufeff" + blockEntry("true", "1"),
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
