@@ -47,10 +47,12 @@ func NewRoot() Context {
 	return Context{TraceID: randomTraceID(), SpanID: randomSpanID(), Flags: FlagSampled}
 }
 
-// Child returns a context in the same trace with a fresh span. Flags and
-// tracestate carry over.
+// Child returns a context in the same trace with a fresh span. The tracestate
+// carries over. Only the sampled flag carries over, since version 00 requires
+// the other bits to be zero.
 func Child(parent Context) Context {
 	parent.SpanID = randomSpanID()
+	parent.Flags &= FlagSampled
 	return parent
 }
 
@@ -73,7 +75,7 @@ func Parse(s string) (Context, error) {
 
 // String formats c as a version 00 traceparent.
 func (c Context) String() string {
-	return fmt.Sprintf("00-%s-%s-%02x", c.TraceID, c.SpanID, c.Flags)
+	return fmt.Sprintf("00-%s-%s-%02x", c.TraceID, c.SpanID, c.Flags&FlagSampled)
 }
 
 // Valid reports whether both IDs are non-zero.

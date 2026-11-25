@@ -1,15 +1,11 @@
 package registry_test
 
 import (
-	"errors"
-	"fmt"
-	"io"
 	"os"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
-	"gopkg.in/yaml.v3"
 
 	"github.com/devsy-org/devsy-signals/tools/internal/registry"
 )
@@ -19,13 +15,6 @@ const (
 	sampleClass = "internal"
 )
 
-type publishedCode struct {
-	Code      string `yaml:"code"`
-	Class     string `yaml:"class"`
-	Retryable *bool  `yaml:"retryable"`
-	Status    string `yaml:"status"`
-}
-
 func TestPublishedInventory(t *testing.T) {
 	t.Parallel()
 	f, err := registry.Load("../../../schema/errors.yaml")
@@ -34,7 +23,9 @@ func TestPublishedInventory(t *testing.T) {
 	inventory, err := os.Open("../../../schema/errors.published.yaml")
 	require.NoError(t, err)
 	t.Cleanup(func() { require.NoError(t, inventory.Close()) })
-	require.NoError(t, checkInventory(f, inventory))
+	published, err := registry.LoadInventory(inventory)
+	require.NoError(t, err)
+	require.NoError(t, registry.CheckInventory(f, published))
 }
 
 func TestInventoryRejectsChanges(t *testing.T) {
@@ -77,78 +68,57 @@ func TestInventoryRejectsChanges(t *testing.T) {
 			if tc.code.Code != "" {
 				f.Codes = []registry.Entry{tc.code}
 			}
-			err := checkInventory(f, strings.NewReader("codes:\n"+tc.inventory))
+			published, err := registry.LoadInventory(strings.NewReader("codes:\n" + tc.inventory))
+			if err == nil {
+				err = registry.CheckInventory(f, published)
+			}
 			require.ErrorContains(t, err, tc.want)
 		})
 	}
 }
 
-func checkInventory(f registry.File, src io.Reader) error {
-	published, err := readInventory(src)
-	if err != nil {
-		return err
+func TestLoadInventoryNullEntries(t *testing.T) {
+	t.Parallel()
+	const entry = "  - {code: sample.error, class: internal, retryable: false, status: active}\n"
+	for name, tc := range map[string]struct{ src, want string }{
+		"null before entry": {"codes:\n  - null\n" + entry, "inventory entry 0 is null"},
+		"tilde entry":       {"codes:\n" + entry + "  - ~\n", "inventory entry 1 is null"},
+		"empty item":        {"codes:\n  -\n" + entry, "inventory entry 0 is null"},
+		"empty list":        {"codes: []\n", ""},
+		"entry only":        {"codes:\n" + entry, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := registry.LoadInventory(strings.NewReader(tc.src))
+			if tc.want == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tc.want)
+		})
 	}
-	active := make(map[string]registry.Entry, len(f.Codes))
-	for _, entry := range f.Codes {
-		if _, ok := published[entry.Code]; !ok {
-			return fmt.Errorf("registry code %q is missing from the inventory", entry.Code)
-		}
-		active[entry.Code] = entry
-	}
-	for _, entry := range published {
-		registryEntry, exists := active[entry.Code]
-		if err := entry.check(registryEntry, exists); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
-func readInventory(src io.Reader) (map[string]publishedCode, error) {
-	var raw struct {
-		Codes []publishedCode `yaml:"codes"`
-	}
-	dec := yaml.NewDecoder(src)
-	dec.KnownFields(true)
-	if err := dec.Decode(&raw); err != nil {
-		return nil, fmt.Errorf("decode errors.published.yaml: %w", err)
-	}
-	var extra yaml.Node
-	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
-		return nil, errors.New("errors.published.yaml must hold exactly one YAML document")
-	}
-	published := make(map[string]publishedCode, len(raw.Codes))
-	for _, entry := range raw.Codes {
-		if _, dup := published[entry.Code]; dup {
-			return nil, fmt.Errorf("inventory code %q is listed twice", entry.Code)
-		}
-		if !entry.complete() {
-			return nil, fmt.Errorf(
-				"inventory code %q must set code, class and retryable",
-				entry.Code,
-			)
-		}
-		published[entry.Code] = entry
-	}
-	return published, nil
-}
+func TestRetryableMustBeYAMLBoolean(t *testing.T) {
+	t.Parallel()
+	for _, value := range []string{"off", "yes", "on", "no", "y", "n", "'true'", "1"} {
+		t.Run(value, func(t *testing.T) {
+			t.Parallel()
+			inventory := "codes:\n  - {code: sample.error, class: internal, retryable: " + value +
+				", status: active}\n"
+			_, err := registry.LoadInventory(strings.NewReader(inventory))
+			require.ErrorContains(t, err, "retryable must be true or false")
 
-func (p publishedCode) complete() bool {
-	return p.Code != "" && p.Class != "" && p.Retryable != nil
-}
-
-func (p publishedCode) check(entry registry.Entry, exists bool) error {
-	switch {
-	case p.Status == "retired":
-		if exists {
-			return fmt.Errorf("retired code %q is in the registry", p.Code)
-		}
-	case p.Status != "active":
-		return fmt.Errorf("inventory code %q has invalid status %q", p.Code, p.Status)
-	case !exists:
-		return fmt.Errorf("active code %q is missing from the registry", p.Code)
-	case p.Class != entry.Class || *p.Retryable != entry.Retryable:
-		return fmt.Errorf("code %q has different class or retryable values", p.Code)
+			src := "classes: {internal: 1}\ncodes:\n  - {code: sample.error, class: internal, retryable: " +
+				value + ", exit: 1, summary: Sample}\n"
+			_, err = registry.Parse([]byte(src))
+			require.ErrorContains(t, err, "retryable must be true or false")
+		})
 	}
-	return nil
+	for _, value := range []string{"true", "false"} {
+		inventory := "codes:\n  - {code: sample.error, class: internal, retryable: " + value +
+			", status: active}\n"
+		_, err := registry.LoadInventory(strings.NewReader(inventory))
+		require.NoError(t, err)
+	}
 }

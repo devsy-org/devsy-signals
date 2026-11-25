@@ -38,8 +38,8 @@ jobs:
       - name: Check published error codes are append-only
         if: github.event_name == 'pull_request'
         env:
-          BASE_REF: ${{ github.base_ref }}
-        run: cd tools && go run ./cmd/checkpublished -base "origin/$BASE_REF"
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: cd tools && go run ./cmd/checkpublished -base "$BASE_SHA"
       - name: Check generated files are current
         run: |
           cd tools && go run ./cmd/gencodes

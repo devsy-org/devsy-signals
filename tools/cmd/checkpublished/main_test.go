@@ -7,46 +7,41 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCheckAppendOnly(t *testing.T) {
+func TestRunRejectsInventoryHistoryChanges(t *testing.T) {
 	t.Parallel()
-	const prefix = "codes:\n  - code: sample.error\n"
-	const active = "    status: active\n"
-	const retired = "    status: retired\n"
-	const addition = "  - code: sample.new\n" + active
-	for name, tc := range map[string]struct {
-		base    string
-		current string
-		want    string
-	}{
-		"new inventory": {current: prefix + active},
-		"unchanged":     {base: prefix + active, current: prefix + active},
-		"append":        {base: prefix + active, current: prefix + active + addition},
-		"retire":        {base: prefix + active, current: prefix + retired},
-		"remove":        {base: prefix + active, current: prefix, want: ":3: existing line removed"},
-		"rename": {
-			base: prefix + active, current: strings.Replace(prefix, "sample.error", "sample.other", 1) + active,
-			want: ":2: existing line changed",
+	retired := strings.Replace(sampleEntry, "active", "retired", 1)
+	for name, tc := range map[string]struct{ base, current, want string }{
+		"reorder": {
+			inventoryHeader + sampleEntry + addedEntry,
+			inventoryHeader + addedEntry + sampleEntry,
+			"changed position",
 		},
 		"insert": {
-			base: prefix + active, current: "codes:\n" + addition + "  - code: sample.error\n" + active,
-			want: ":2: existing line changed",
+			inventoryHeader + sampleEntry,
+			inventoryHeader + addedEntry + sampleEntry,
+			"changed position",
 		},
 		"reactivate": {
-			base: prefix + retired, current: prefix + active, want: ":3: existing line changed",
+			inventoryHeader + retired,
+			inventoryHeader + sampleEntry,
+			"cannot be reactivated",
 		},
-		"strip newline": {
-			base: prefix + active, current: prefix + strings.TrimSuffix(active, "\n"),
-			want: ":3: existing line changed",
+		"remove": {
+			inventoryHeader + sampleEntry + addedEntry,
+			inventoryHeader + sampleEntry,
+			"was removed",
+		},
+		"rename": {
+			inventoryHeader + sampleEntry,
+			inventoryHeader + addedEntry,
+			"was removed",
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			err := checkAppendOnly(tc.base, tc.current)
-			if tc.want == "" {
-				require.NoError(t, err)
-			} else {
-				require.ErrorContains(t, err, tc.want)
-			}
+			dir, base := setupRepo(t, "", tc.base)
+			writeInventory(t, dir, tc.current)
+			require.ErrorContains(t, run(t.Context(), dir, base), tc.want)
 		})
 	}
 }
