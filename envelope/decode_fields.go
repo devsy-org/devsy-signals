@@ -101,7 +101,11 @@ func readField[T any](f *recordFields, name string) T {
 	delete(f.values, name)
 	value, ok := raw.(T)
 	if present && !ok && f.strict {
-		f.fail(name, fmt.Sprintf("has the wrong type (%T)", raw))
+		if raw == nil {
+			f.fail(name, "is null")
+		} else {
+			f.fail(name, fmt.Sprintf("has the wrong type (%T)", raw))
+		}
 	}
 	return value
 }

@@ -27,14 +27,15 @@ var numberRE = regexp.MustCompile(`^(-?)(0|[1-9][0-9]*)(?:\.([0-9]+))?(?:[eE]([+
 
 // Decode reads one version 1 JSON record without calling Validate. It ignores
 // unknown fields, preserves unknown enum strings, and treats null and values
-// that do not fit a typed field as absent. Open objects keep json.Number values.
+// that do not fit a typed field as absent. Data and attrs preserve nested
+// nulls and keep numbers as json.Number.
 func Decode(data []byte) (Envelope, error) {
 	return decode(data, false)
 }
 
 // DecodeStrict reads one version 1 JSON record without calling Validate. It
-// rejects unknown fields and enum strings, nulls, incorrect field types, and
-// empty optional strings.
+// rejects unknown fields and enum strings, nulls in typed fields, incorrect
+// field types, and empty optional strings. Data and attrs preserve nested nulls.
 func DecodeStrict(data []byte) (Envelope, error) {
 	return decode(data, true)
 }
@@ -51,15 +52,12 @@ func decode(data []byte, strict bool) (Envelope, error) {
 	if err := checkText(data); err != nil {
 		return Envelope{}, err
 	}
-	root, nullOffset, err := parseRecord(data)
+	root, err := parseRecord(data)
 	if err != nil {
 		return Envelope{}, fmt.Errorf("%w: %w", ErrNotRecord, err)
 	}
 	if err := checkVersion(root["v"]); err != nil {
 		return Envelope{}, err
-	}
-	if strict && nullOffset != 0 {
-		return Envelope{}, fmt.Errorf("%w: null value ending at byte %d", ErrStrict, nullOffset)
 	}
 	delete(root, "v")
 	fields := &recordFields{values: root, path: "envelope", strict: strict}

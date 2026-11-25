@@ -11,29 +11,35 @@ import (
 )
 
 type recordParser struct {
-	data       []byte
-	pos        int
-	nullOffset int
+	data []byte
+	pos  int
 }
 
 type nullValue struct{}
 
+func jsonValue(value any) any {
+	if _, ok := value.(nullValue); ok {
+		return nil
+	}
+	return value
+}
+
 // Use the standard decoder for scalars only: its structural depth limit can
 // reject records below the byte limit.
-func parseRecord(data []byte) (map[string]any, int, error) {
+func parseRecord(data []byte) (map[string]any, error) {
 	p := recordParser{data: data}
 	if !p.take('{') {
-		return nil, 0, p.expected("a JSON object")
+		return nil, p.expected("a JSON object")
 	}
 	root, err := p.object()
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 	p.skipSpace()
 	if p.pos != len(data) {
-		return nil, 0, p.expected("end of input after the JSON object")
+		return nil, p.expected("end of input after the JSON object")
 	}
-	return root, p.nullOffset, nil
+	return root, nil
 }
 
 func (p *recordParser) object() (map[string]any, error) {
@@ -46,9 +52,8 @@ func (p *recordParser) object() (map[string]any, error) {
 		if err != nil {
 			return nil, err
 		}
-		values[name] = value
+		values[name] = jsonValue(value)
 		if p.take('}') {
-			p.discardNulls(values)
 			return values, nil
 		}
 		if !p.take(',') {
@@ -75,17 +80,6 @@ func (p *recordParser) member(values map[string]any) (string, any, error) {
 	return name, value, err
 }
 
-func (p *recordParser) discardNulls(values map[string]any) {
-	if p.nullOffset == 0 {
-		return
-	}
-	for name, value := range values {
-		if _, isNull := value.(nullValue); isNull {
-			delete(values, name)
-		}
-	}
-}
-
 func (p *recordParser) array() ([]any, error) {
 	values := []any{}
 	if p.take(']') {
@@ -96,9 +90,7 @@ func (p *recordParser) array() ([]any, error) {
 		if err != nil {
 			return nil, err
 		}
-		if _, isNull := value.(nullValue); !isNull {
-			values = append(values, value)
-		}
+		values = append(values, jsonValue(value))
 		if p.take(']') {
 			return values, nil
 		}
@@ -155,7 +147,6 @@ func (p *recordParser) scalar() (any, error) {
 	raw := p.data[start:p.pos]
 	switch string(raw) {
 	case "null":
-		p.nullOffset = p.pos
 		return nullValue{}, nil
 	case "true":
 		return true, nil

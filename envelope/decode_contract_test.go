@@ -170,10 +170,6 @@ func TestDecodeToleratesWrongTypesAndNulls(t *testing.T) {
 				return e.Error != nil && len(e.Error.Context) == 0
 			},
 		},
-		{"opaque null", `{"v":1,"data":{"a":null,"b":[null]}}`, func(e envelope.Envelope) bool {
-			items, ok := e.Data["b"].([]any)
-			return ok && len(items) == 0 && len(e.Data) == 1
-		}},
 		{
 			"wrong field types",
 			`{"v":1,"msg":true,"actor":[],"attrs":12}`,
@@ -182,6 +178,62 @@ func TestDecodeToleratesWrongTypesAndNulls(t *testing.T) {
 			},
 		},
 	})
+	t.Run("opaque null", func(t *testing.T) {
+		t.Parallel()
+		checkTolerantOpaqueNull(t)
+	})
+}
+
+func checkTolerantOpaqueNull(t *testing.T) {
+	t.Helper()
+	e, err := envelope.Decode([]byte(`{"v":1,"data":{"a":null,"b":[null]}}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	nullValue, present := e.Data["a"]
+	items, ok := e.Data["b"].([]any)
+	if !present || nullValue != nil || !ok || len(items) != 1 || items[0] != nil {
+		t.Fatalf("got data %#v, want a present as nil and b containing one nil", e.Data)
+	}
+}
+
+func TestDecodeStrictPreservesOpaqueNulls(t *testing.T) {
+	t.Parallel()
+	const payload = `{"a":null,"b":[1,null,2]}`
+	for _, field := range []string{"data", "attrs"} {
+		t.Run(field, func(t *testing.T) {
+			t.Parallel()
+			in := fmt.Sprintf(`{"v":1,%q:%s}`, field, payload)
+			e, err := envelope.DecodeStrict([]byte(in))
+			if err != nil {
+				t.Fatal(err)
+			}
+			got := e.Data
+			if field == "attrs" {
+				got = e.Attrs
+			}
+			encoded, err := json.Marshal(got)
+			if err != nil || string(encoded) != payload {
+				t.Fatalf("got %s, %v; want %s", encoded, err, payload)
+			}
+		})
+	}
+}
+
+func TestDecodeStrictRejectsTypedNullsBesideOpaqueNulls(t *testing.T) {
+	t.Parallel()
+	for field, in := range map[string]string{
+		"envelope.actor":           `{"v":1,"actor":null,"data":{"n":null}}`,
+		"envelope.error.context.k": `{"v":1,"attrs":{"n":null},"error":{` + errBody + `,"context":{"k":null}}}`,
+	} {
+		t.Run(field, func(t *testing.T) {
+			t.Parallel()
+			_, err := envelope.DecodeStrict([]byte(in))
+			if !errors.Is(err, envelope.ErrStrict) || !strings.Contains(err.Error(), field) {
+				t.Fatalf("got %v, want ErrStrict for %s", err, field)
+			}
+		})
+	}
 }
 
 func checkToleratedFields(t *testing.T, cases []fieldCase) {
