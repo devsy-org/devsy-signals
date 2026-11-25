@@ -268,3 +268,33 @@ func TestParseRequiresIntegerEntryExit(t *testing.T) {
 		})
 	}
 }
+
+func underscoreRejects() []string {
+	return []string{"0_17", "+0_17", "0_1", "00_1", "1__0", "1_", "0_", "0x_1", "_1"}
+}
+
+func underscoreAccepts() []string {
+	return []string{"1_0", "1_2_3", "0x1_0", "0o1_7", "0b1_0"}
+}
+
+func TestParseUnderscoreExits(t *testing.T) {
+	t.Parallel()
+	for _, value := range underscoreRejects() {
+		t.Run("class "+value, func(t *testing.T) {
+			t.Parallel()
+			_, err := registry.Parse([]byte("classes: {internal: " + value + "}\ncodes: []\n"))
+			require.ErrorContains(t, err, wantInteger)
+		})
+		t.Run("entry "+value, func(t *testing.T) {
+			t.Parallel()
+			entry := "  - {code: a.b, class: internal, retryable: false, summary: s, exit: " + value + "}\n"
+			_, err := registry.Parse([]byte("classes: {internal: 1}\ncodes:\n" + entry))
+			require.ErrorContains(t, err, wantInteger)
+		})
+	}
+	for _, value := range underscoreAccepts() {
+		entry := "  - {code: a.b, class: internal, retryable: false, summary: s, exit: " + value + "}\n"
+		_, err := registry.Parse([]byte("classes: {internal: " + value + "}\ncodes:\n" + entry))
+		require.NoError(t, err, value)
+	}
+}
