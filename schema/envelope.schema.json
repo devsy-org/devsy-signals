@@ -228,6 +228,7 @@
         ]
       },
       "then": {
+        "$ref": "audit-data.schema.json",
         "required": [
           "id",
           "pool",
@@ -242,24 +243,6 @@
           "attrs": false,
           "type": {
             "$ref": "#/$defs/auditType"
-          }
-        }
-      }
-    },
-    {
-      "if": {
-        "properties": {
-          "kind": {"const": "audit"},
-          "type": {"const": "session.request"}
-        },
-        "required": ["kind", "type"]
-      },
-      "then": {
-        "properties": {
-          "data": {
-            "properties": {
-              "vcs.ref.head.name": {"$ref": "#/$defs/auditGitRef"}
-            }
           }
         }
       }

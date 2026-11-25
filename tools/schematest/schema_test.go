@@ -22,12 +22,17 @@ const (
 
 func compile(t *testing.T) *jsonschema.Schema {
 	t.Helper()
-	raw, err := os.ReadFile(filepath.Join(root, "schema", "envelope.schema.json"))
-	require.NoError(t, err)
-	doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(raw))
-	require.NoError(t, err)
 	c := jsonschema.NewCompiler()
-	require.NoError(t, c.AddResource(schemaURL, doc))
+	for _, name := range []string{"envelope.schema.json", "audit-data.schema.json"} {
+		raw, err := readFile(filepath.Join(root, "schema", name))
+		require.NoError(t, err)
+		doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(raw))
+		require.NoError(t, err)
+		require.NoError(
+			t,
+			c.AddResource("https://github.com/devsy-org/devsy-signals/schema/"+name, doc),
+		)
+	}
 	s, err := c.Compile(schemaURL)
 	require.NoError(t, err)
 	return s
