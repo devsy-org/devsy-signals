@@ -14,7 +14,9 @@
     "id": "policy-engine"
   },
   "data": {
-    "rules": 12
+    "devsy.policy.allow_rule_count": 12,
+    "devsy.policy.grant_names": [],
+    "devsy.policy.verify_result": "ok"
   },
   "attrs": {}
 }

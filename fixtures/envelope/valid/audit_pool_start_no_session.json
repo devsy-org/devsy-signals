@@ -14,6 +14,8 @@
     "id": "policy-engine"
   },
   "data": {
-    "rules": 12
+    "devsy.pool.sessions_loaded": 12,
+    "devsy.pool.sessions_failed": 0,
+    "devsy.pool.orphans_found": 0
   }
 }

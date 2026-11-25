@@ -33,13 +33,18 @@
         "user.id": {
           "type": "string",
           "variants": {
-            "local_user": {"maxBytes": 64, "format": "os-login-name", "required": true},
+            "local_user": {
+              "maxBytes": 64,
+              "pattern": "^[^\\x00-\\x1f\\x7f-\\x9f\\x{2028}\\x{2029}]+$",
+              "required": true,
+              "provenance": "OS login verified by the writer"
+            },
             "adapter": {"pattern": "^(claude|cursor):[A-Za-z0-9_-]{1,128}$"}
           },
           "byKey": "devsy.requester.kind"
         },
         "vcs.repository.name": {"type": "string", "format": "owner-name", "required": true},
-        "vcs.ref.head.name": {"type": "string", "format": "git-ref-characters"}
+        "vcs.ref.head.name": {"type": "string", "format": "git-ref-name"}
       }
     },
     "session.spawn": {

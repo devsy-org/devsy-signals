@@ -41,9 +41,8 @@ func (p *problems) add(ok bool, format string, args ...any) {
 	}
 }
 
-// Validate applies the rules of schema/envelope.schema.json and returns every
-// violation, joined. Strings are measured in bytes where the design sets a
-// byte limit.
+// Validate applies the envelope schema and audit data rules and joins every
+// violation. Strings are measured in bytes where the design sets a byte limit.
 func (e Envelope) Validate() error {
 	return errors.Join(
 		e.checkHeader(), e.checkRequired(), e.checkAudit(), e.checkIDs(),
@@ -159,7 +158,7 @@ func (e Envelope) checkAudit() error {
 	p.add(e.Msg == "", "msg is not allowed on audit")
 	p.add(e.Level == "", "level is not allowed on audit")
 	p.add(e.Attrs == nil, "attrs is not allowed on audit")
-	return errors.Join(p...)
+	return errors.Join(errors.Join(p...), e.checkAuditData())
 }
 
 func (e Envelope) checkIDs() error {

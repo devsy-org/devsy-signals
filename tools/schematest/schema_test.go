@@ -90,7 +90,7 @@ func TestGoValidatorAgreesWithSchema(t *testing.T) {
 	t.Parallel()
 	s := compile(t)
 	goOnly := loadGoOnly(t)
-	for _, dir := range []string{"valid", "invalid"} {
+	for _, dir := range []string{"valid", "invalid", "go_only"} {
 		for _, path := range fixtureFiles(t, dir) {
 			name := dir + "/" + filepath.Base(path)
 			reason := goOnly[name]

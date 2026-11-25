@@ -16,7 +16,8 @@
     "id": "agent-7"
   },
   "data": {
-    "destination": "example.com",
-    "port": 443
+    "server.address": "example.com",
+    "server.port": 443,
+    "devsy.egress.reason": "not_allowed"
   }
 }

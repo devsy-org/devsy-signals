@@ -249,6 +249,24 @@
     {
       "if": {
         "properties": {
+          "kind": {"const": "audit"},
+          "type": {"const": "session.request"}
+        },
+        "required": ["kind", "type"]
+      },
+      "then": {
+        "properties": {
+          "data": {
+            "properties": {
+              "vcs.ref.head.name": {"$ref": "#/$defs/auditGitRef"}
+            }
+          }
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
           "kind": {
             "const": "audit"
           },
@@ -289,6 +307,14 @@
         "egress.allow.summary",
         "egress.allow"
       ]
+    },
+    "auditGitRef": {
+      "type": "string",
+      "maxLength": 256,
+      "pattern": "^[^/]+(/[^/]+)*$",
+      "not": {
+        "pattern": "[\\x00-\\x20\\x7f~^:?*\\[\\\\]|\\.\\.|@\\{|(^|/)\\.|\\.lock(/|$)|\\.$|^@$"
+      }
     },
     "versionHash": {
       "type": "string",
