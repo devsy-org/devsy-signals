@@ -38,11 +38,8 @@ jobs:
       - name: Check published error codes are append-only
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: |
-          case "$BASE_SHA" in
-            ''|0000000000000000000000000000000000000000) echo "no previous commit to compare with"; exit 0 ;;
-          esac
-          cd tools && go run ./cmd/checkpublished -base "$BASE_SHA"
+          REQUIRE_BASE: ${{ github.event_name == 'pull_request' && '-require-base' || '' }}
+        run: cd tools && go run ./cmd/checkpublished ${REQUIRE_BASE:+"$REQUIRE_BASE"} -base "$BASE_SHA"
       - name: Check generated files are current
         run: |
           cd tools && go run ./cmd/gencodes && go run ./cmd/genauditschema

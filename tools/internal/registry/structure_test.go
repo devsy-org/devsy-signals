@@ -15,7 +15,7 @@ import (
 
 const (
 	notAllowed   = "not allowed in the registry"
-	maxFileBytes = 1 << 20
+	maxFileBytes = 1 << 18
 	plainKeys    = "mapping keys must be plain strings"
 )
 

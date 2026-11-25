@@ -99,7 +99,11 @@ func (c *structureChecker) repeated(seen map[string]bool, key *yaml.Node, label 
 		seen[key.Value] = true
 		return false
 	}
-	c.fail(key, fieldCtx{label, key.Value}, fmt.Sprintf("mapping key %q is defined twice", key.Value))
+	c.fail(
+		key,
+		fieldCtx{label, key.Value},
+		fmt.Sprintf("mapping key %q is defined twice", key.Value),
+	)
 	return true
 }
 
