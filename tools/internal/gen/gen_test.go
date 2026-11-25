@@ -136,3 +136,17 @@ func specNames(spec ast.Spec) []string {
 	}
 	return nil
 }
+
+func TestRenderAcceptsFormatCharactersTheRegistryAllows(t *testing.T) {
+	t.Parallel()
+	const src = "classes: {internal: 1}\ncodes:\n" +
+		"  - {code: a.b, class: internal, retryable: false, exit: 1, " +
+		"summary: \"soft\\u00adhyphen joiner\\u200d word\\u2060joiner\"}\n"
+	f, err := registry.Parse([]byte(src))
+	require.NoError(t, err)
+	goSrc, tsSrc, err := gen.Render(f)
+	require.NoError(t, err)
+	_, err = parser.ParseFile(token.NewFileSet(), "codes_gen.go", goSrc, 0)
+	require.NoError(t, err)
+	assert.NotEmpty(t, tsSrc)
+}

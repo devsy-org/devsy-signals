@@ -147,6 +147,7 @@ func TestParseRejectsControlAndBidiSummary(t *testing.T) {
 		"C1":        {"\\u0080", "\\u0090", "\\u009f"},
 		"marks":     {"\\u061c", "\\u200e", "\\u200f"},
 		"mongolian": {"\\u180e"},
+		"bom":       {"\\ufeff"},
 		"embed":     {"\\u202a", "\\u202b", "\\u202c", "\\u202d", "\\u202e"},
 		"isolates":  {"\\u2066", "\\u2067", "\\u2068", "\\u2069"},
 	} {

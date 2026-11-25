@@ -291,10 +291,12 @@ func checkSummary(code, summary string) error {
 
 // unsafeRune reports control characters, the Bidi_Control set (the Arabic
 // letter mark, marks, embeddings, overrides and isolates) and U+180E, which
-// Unicode now classes as a format character. Other format characters such as
-// U+00AD, U+200B to U+200D, U+2060 to U+2064 and U+FEFF stay accepted.
+// Unicode now classes as a format character. U+FEFF is refused because the Go
+// compiler rejects it inside the generated source. Other format characters
+// such as U+00AD, U+200B to U+200D and U+2060 to U+2064 stay accepted.
 func unsafeRune(r rune) bool {
-	return unicode.IsControl(r) || unicode.Is(unicode.Bidi_Control, r) || r == '\u180e'
+	return unicode.IsControl(r) || unicode.Is(unicode.Bidi_Control, r) ||
+		r == '\u180e' || r == '\ufeff'
 }
 
 func validCode(code string) bool {
