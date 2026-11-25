@@ -11,7 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"unicode"
-	"unicode/utf8"
 )
 
 func (s auditSpec) validValue(rule auditRule, value any) bool {
@@ -89,7 +88,7 @@ func auditText(value any) (string, bool) {
 }
 
 func validAuditText(rule, defaults auditRule, text string) bool {
-	return utf8.ValidString(text) && strings.IndexByte(text, 0) < 0 &&
+	return validWireString(text) &&
 		len(text) >= auditLimit(rule.MinBytes, defaults.MinBytes) &&
 		len(text) <= auditLimit(rule.MaxBytes, defaults.MaxBytes) &&
 		(rule.Enum == nil || slices.Contains(rule.Enum, text)) &&

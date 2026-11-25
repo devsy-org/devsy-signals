@@ -272,6 +272,12 @@
     }
   ],
   "$defs": {
+    "wireText": {
+      "not": {
+        "type": "string",
+        "pattern": "\\x00"
+      }
+    },
     "auditType": {
       "enum": [
         "session.request",

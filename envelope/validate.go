@@ -11,6 +11,7 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // Attribute limits.
@@ -46,8 +47,28 @@ func (p *problems) add(ok bool, format string, args ...any) {
 func (e Envelope) Validate() error {
 	return errors.Join(
 		e.checkHeader(), e.checkRequired(), e.checkAudit(), e.checkIDs(),
-		e.checkActor(), e.checkError(), e.checkAttrs(), e.checkVersions(),
+		e.checkActor(), e.checkError(), e.checkAttrs(), e.checkVersions(), e.checkWireText(),
 	)
+}
+
+func (e Envelope) checkWireText() error {
+	var p problems
+	p.wireString("workspace", e.Workspace)
+	p.wireString("session", e.Session)
+	p.wireString("pool", e.Pool)
+	p.wireString("host", e.Host)
+	p.wireString("msg", e.Msg)
+	return errors.Join(p...)
+}
+
+func (p *problems) wireString(field, value string) {
+	if !validWireString(value) {
+		p.add(false, "%s must be valid UTF-8 without NUL", field)
+	}
+}
+
+func validWireString(value string) bool {
+	return utf8.ValidString(value) && strings.IndexByte(value, 0) < 0
 }
 
 func (e Envelope) checkHeader() error {
@@ -185,6 +206,7 @@ func (e Envelope) checkActor() error {
 	var p problems
 	p.add(e.Actor.Kind.Known(), "actor.kind %q is not a known actor kind", e.Actor.Kind)
 	p.add(e.Actor.ID != "", "actor.id is required")
+	p.wireString("actor.id", e.Actor.ID)
 	return errors.Join(p...)
 }
 
@@ -196,6 +218,12 @@ func (e Envelope) checkError() error {
 	p.add(keyRE.MatchString(e.Error.Code), "error.code %q is malformed", e.Error.Code)
 	p.add(e.Error.Message != "", "error.message is required")
 	p.add(e.Error.Class.Known(), "error.class %q is not a known class", e.Error.Class)
+	p.wireString("error.message", e.Error.Message)
+	p.wireString("error.hint", e.Error.Hint)
+	for _, key := range slices.Sorted(maps.Keys(e.Error.Context)) {
+		p.wireString("error.context key", key)
+		p.wireString("error.context value", e.Error.Context[key])
+	}
 	return errors.Join(p...)
 }
 
@@ -251,7 +279,7 @@ func scalarErr(v any) error {
 	rv := reflect.ValueOf(v)
 	switch rv.Kind() {
 	case reflect.String:
-		return stringErr(rv.Len())
+		return stringErr(rv.String())
 	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		return nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
@@ -263,9 +291,12 @@ func scalarErr(v any) error {
 	}
 }
 
-func stringErr(n int) error {
-	if n > MaxAttrValueBytes {
-		return fmt.Errorf("string value is %d bytes, the limit is %d", n, MaxAttrValueBytes)
+func stringErr(s string) error {
+	if !validWireString(s) {
+		return errors.New("string must be valid UTF-8 without NUL")
+	}
+	if len(s) > MaxAttrValueBytes {
+		return fmt.Errorf("string value is %d bytes, the limit is %d", len(s), MaxAttrValueBytes)
 	}
 	return nil
 }

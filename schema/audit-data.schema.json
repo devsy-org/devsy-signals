@@ -5,6 +5,7 @@
       "additionalProperties": false,
       "properties": {
         "devsy.credential.deny_reason": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "enum": [
             "bad_capability",
             "not_granted",
@@ -14,25 +15,18 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "devsy.credential.grant": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "devsy.route.name": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         }
       },
@@ -83,6 +77,7 @@
       ],
       "properties": {
         "devsy.credential.expires_at": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "allOf": [
             {
               "$ref": "envelope.schema.json#/properties/ts"
@@ -90,58 +85,45 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "devsy.credential.fingerprint": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "pattern": "^[0-9a-f]{12}$",
           "type": "string"
         },
         "devsy.credential.grant": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "devsy.credential.issuer": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "enum": [
             "github-app"
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "devsy.credential.mode": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "enum": [
             "inject",
             "mint"
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "devsy.credential.permissions": {
           "items": {
+            "$ref": "envelope.schema.json#/$defs/wireText",
             "maxLength": 256,
             "minLength": 1,
-            "not": {
-              "pattern": "\\x00"
-            },
             "pattern": "^[a-z_]+:(read|write)$",
             "type": "string"
           },
@@ -172,23 +154,20 @@
       "additionalProperties": false,
       "properties": {
         "devsy.credential.fingerprint": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "pattern": "^[0-9a-f]{12}$",
           "type": "string"
         },
         "devsy.credential.grant": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "devsy.credential.revoke_result": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "enum": [
             "revoked",
             "already_expired",
@@ -196,9 +175,6 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         }
       },
@@ -213,19 +189,15 @@
       "additionalProperties": false,
       "properties": {
         "devsy.credential.grant": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "devsy.route.name": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "http.request.body.size": {
@@ -233,6 +205,7 @@
           "type": "integer"
         },
         "http.request.method": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "enum": [
             "GET",
             "HEAD",
@@ -247,9 +220,6 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "http.response.body.size": {
@@ -331,6 +301,7 @@
           "type": "integer"
         },
         "network.peer.address": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "allOf": [
             {
               "anyOf": [
@@ -345,12 +316,10 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "server.address": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "allOf": [
             {
               "anyOf": [
@@ -368,9 +337,6 @@
           ],
           "maxLength": 253,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "server.port": {
@@ -446,6 +412,7 @@
           "type": "integer"
         },
         "devsy.egress.first_seen": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "allOf": [
             {
               "$ref": "envelope.schema.json#/properties/ts"
@@ -453,12 +420,10 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "devsy.egress.last_seen": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "allOf": [
             {
               "$ref": "envelope.schema.json#/properties/ts"
@@ -466,9 +431,6 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "devsy.egress.rule_index": {
@@ -476,6 +438,7 @@
           "type": "integer"
         },
         "server.address": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "allOf": [
             {
               "anyOf": [
@@ -493,9 +456,6 @@
           ],
           "maxLength": 253,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "server.port": {
@@ -569,6 +529,7 @@
           "type": "boolean"
         },
         "devsy.egress.reason": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "enum": [
             "not_allowed",
             "reserved_range",
@@ -583,12 +544,10 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "network.peer.address": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "allOf": [
             {
               "anyOf": [
@@ -603,12 +562,10 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "server.address": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "allOf": [
             {
               "anyOf": [
@@ -626,9 +583,6 @@
           ],
           "maxLength": 253,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "server.port": {
@@ -652,17 +606,16 @@
         },
         "devsy.policy.grant_names": {
           "items": {
+            "$ref": "envelope.schema.json#/$defs/wireText",
             "maxLength": 256,
             "minLength": 1,
-            "not": {
-              "pattern": "\\x00"
-            },
             "type": "string"
           },
           "maxItems": 32,
           "type": "array"
         },
         "devsy.policy.verify_result": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "enum": [
             "ok",
             "failed",
@@ -670,9 +623,6 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         }
       },
@@ -714,6 +664,7 @@
           "type": "integer"
         },
         "devsy.session.end_reason": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "enum": [
             "completed",
             "failed",
@@ -725,9 +676,6 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "process.exit.code": {
@@ -744,6 +692,7 @@
       "additionalProperties": false,
       "properties": {
         "devsy.idle_since": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "allOf": [
             {
               "$ref": "envelope.schema.json#/properties/ts"
@@ -751,9 +700,6 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         }
       },
@@ -766,6 +712,7 @@
       "additionalProperties": false,
       "properties": {
         "container.image.id": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "allOf": [
             {
               "$ref": "envelope.schema.json#/$defs/versionHash"
@@ -773,9 +720,6 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "devsy.duration_ms": {
@@ -783,11 +727,9 @@
           "type": "integer"
         },
         "devsy.provider.name": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         }
       },
@@ -810,6 +752,7 @@
         },
         "devsy.reclaim.remaining": {
           "items": {
+            "$ref": "envelope.schema.json#/$defs/wireText",
             "enum": [
               "container",
               "volume",
@@ -820,15 +763,13 @@
             ],
             "maxLength": 256,
             "minLength": 1,
-            "not": {
-              "pattern": "\\x00"
-            },
             "type": "string"
           },
           "maxItems": 32,
           "type": "array"
         },
         "devsy.reclaim.result": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "enum": [
             "deleted",
             "partial",
@@ -836,9 +777,6 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         }
       },
@@ -866,11 +804,9 @@
           "then": {
             "properties": {
               "user.id": {
+                "$ref": "envelope.schema.json#/$defs/wireText",
                 "maxLength": 256,
                 "minLength": 1,
-                "not": {
-                  "pattern": "\\x00"
-                },
                 "pattern": "^(claude|cursor):[A-Za-z0-9_-]{1,128}$",
                 "type": "string"
               }
@@ -891,11 +827,9 @@
           "then": {
             "properties": {
               "user.id": {
+                "$ref": "envelope.schema.json#/$defs/wireText",
                 "maxLength": 64,
                 "minLength": 1,
-                "not": {
-                  "pattern": "\\x00"
-                },
                 "pattern": "^[^\\x00-\\x1f\\x7f-\\x9f\u2028\u2029]+$",
                 "type": "string"
               }
@@ -908,23 +842,20 @@
       ],
       "properties": {
         "devsy.agent.name": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "devsy.request.id_hash": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "pattern": "^[0-9a-f]{64}$",
           "type": "string"
         },
         "devsy.request.outcome": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "enum": [
             "new",
             "duplicate",
@@ -933,32 +864,26 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "devsy.requester.kind": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "enum": [
             "local_user",
             "adapter"
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "user.id": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "vcs.ref.head.name": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "allOf": [
             {
               "$ref": "envelope.schema.json#/$defs/auditGitRef"
@@ -966,12 +891,10 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "vcs.repository.name": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "allOf": [
             {
               "pattern": "^[^/\\\\:@?#\\x00-\\x20\\x7f-\\x9f\\p{Z}]+/[^/\\\\:@?#\\x00-\\x20\\x7f-\\x9f\\p{Z}]+$"
@@ -979,9 +902,6 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         }
       },
@@ -998,6 +918,7 @@
       "additionalProperties": false,
       "properties": {
         "container.image.id": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "allOf": [
             {
               "$ref": "envelope.schema.json#/$defs/versionHash"
@@ -1005,17 +926,12 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         },
         "devsy.provider.name": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         }
       },
@@ -1032,6 +948,7 @@
           "type": "integer"
         },
         "process.executable.name": {
+          "$ref": "envelope.schema.json#/$defs/wireText",
           "allOf": [
             {
               "not": {
@@ -1041,9 +958,6 @@
           ],
           "maxLength": 256,
           "minLength": 1,
-          "not": {
-            "pattern": "\\x00"
-          },
           "type": "string"
         }
       },
