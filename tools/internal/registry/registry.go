@@ -46,14 +46,8 @@ func Load(path string) (File, error) {
 // retryable flag and extra YAML documents are errors.
 func Parse(data []byte) (File, error) {
 	var raw rawFile
-	dec := yaml.NewDecoder(bytes.NewReader(data))
-	dec.KnownFields(true)
-	if err := dec.Decode(&raw); err != nil {
-		return File{}, fmt.Errorf("decode errors.yaml: %w", err)
-	}
-	var extra yaml.Node
-	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
-		return File{}, errors.New("errors.yaml must hold exactly one YAML document")
+	if err := decodeYAML(bytes.NewReader(data), "errors.yaml", &raw); err != nil {
+		return File{}, err
 	}
 	f, err := raw.file()
 	if err != nil {
@@ -63,6 +57,19 @@ func Parse(data []byte) (File, error) {
 		return File{}, err
 	}
 	return f, nil
+}
+
+func decodeYAML(src io.Reader, name string, dst any) error {
+	dec := yaml.NewDecoder(src)
+	dec.KnownFields(true)
+	if err := dec.Decode(dst); err != nil {
+		return fmt.Errorf("decode %s: %w", name, err)
+	}
+	var extra yaml.Node
+	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
+		return fmt.Errorf("%s must hold exactly one YAML document", name)
+	}
+	return nil
 }
 
 type rawEntry struct {
