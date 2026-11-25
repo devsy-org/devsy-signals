@@ -32,11 +32,31 @@ const (
 
 func main() {
 	base := flag.String("base", "", "Git base ref to compare with")
+	require := flag.Bool("require-base", false, "fail instead of skipping when the base is empty")
 	flag.Parse()
-	if err := run(context.Background(), "..", *base); err != nil {
+	skip, err := decideBase(*base, *require)
+	if err == nil && !skip {
+		err = run(context.Background(), "..", *base)
+	}
+	if skip {
+		fmt.Fprintln(os.Stderr, "checkpublished: no previous commit to compare with")
+	}
+	if err != nil {
 		fmt.Fprintln(os.Stderr, "checkpublished:", err)
 		os.Exit(1)
 	}
+}
+
+const zeroSHA = "0000000000000000000000000000000000000000"
+
+// decideBase reports whether the check has nothing to compare with. A push
+// to a new branch has an empty or all-zero before sha. A pull request always
+// has a base, so with requireBase an empty one is an error, not a skip.
+func decideBase(base string, requireBase bool) (bool, error) {
+	if base == "" && requireBase {
+		return false, errors.New("-require-base is set but the base sha is empty")
+	}
+	return base == "" || base == zeroSHA, nil
 }
 
 func run(ctx context.Context, root, base string) error {
@@ -47,7 +67,7 @@ func run(ctx context.Context, root, base string) error {
 	if err != nil || path == "" {
 		return err
 	}
-	previous, err := gitBlob(ctx, root, base+":"+path)
+	previous, err := baseBlob(ctx, root, base, path)
 	if err != nil {
 		return err
 	}
@@ -62,6 +82,19 @@ func run(ctx context.Context, root, base string) error {
 		)
 	}
 	return checkCurrent(root, baseline)
+}
+
+// baseBlob reads the base file. An oversized one cannot be fixed by the change
+// under check, so the error says what a maintainer has to do.
+func baseBlob(ctx context.Context, root, base, path string) ([]byte, error) {
+	data, err := gitBlob(ctx, root, base+":"+path)
+	if errors.Is(err, registry.ErrTooLarge) {
+		return nil, fmt.Errorf(
+			"%w: a maintainer commit must also shrink the file below %d bytes",
+			err, registry.MaxFileBytes,
+		)
+	}
+	return data, err
 }
 
 func baselinePath(ctx context.Context, root, base string) (string, error) {

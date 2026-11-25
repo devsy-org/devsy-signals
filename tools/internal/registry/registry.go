@@ -75,11 +75,15 @@ const (
 	errPlainExit = "exit must be a plain integer without a tag, anchor or alias"
 
 	// MaxFileBytes bounds the registry and inventory files, which hold a few
-	// KB, so the checks on them cost a bounded amount of work.
-	MaxFileBytes = 1 << 20
+	// KB. yaml.v3 does quadratic work on mappings with many keys, so the cap
+	// is what keeps a crafted file to a few seconds.
+	MaxFileBytes = 1 << 18
 
 	byteOrderMark = "\xef\xbb\xbf"
 )
+
+// ErrTooLarge marks a file or stream over MaxFileBytes.
+var ErrTooLarge = errors.New("file is too large")
 
 // ReadLimited reads src to its end and fails once more than MaxFileBytes are
 // present. It reads at most one byte past the limit, so an oversized file or
@@ -90,7 +94,12 @@ func ReadLimited(src io.Reader, name string) ([]byte, error) {
 		return nil, fmt.Errorf("read %s: %w", name, err)
 	}
 	if len(data) > MaxFileBytes {
-		return nil, fmt.Errorf("%s is too large: the limit is %d bytes", name, MaxFileBytes)
+		return nil, fmt.Errorf(
+			"%s is too large: the limit is %d bytes: %w",
+			name,
+			MaxFileBytes,
+			ErrTooLarge,
+		)
 	}
 	return data, nil
 }

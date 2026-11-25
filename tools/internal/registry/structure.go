@@ -63,9 +63,10 @@ func (c *structureChecker) walkMapping(n *yaml.Node, ctx fieldCtx, top bool) {
 	if label == "" {
 		label = ctx.label
 	}
+	seen := make(map[string]bool, len(n.Content)/2)
 	for i := 0; i+1 < len(n.Content); i += 2 {
 		key, val := n.Content[i], n.Content[i+1]
-		if !c.checkKey(key, fieldCtx{label, key.Value}) {
+		if !c.checkKey(key, fieldCtx{label, key.Value}) || c.repeated(seen, key, label) {
 			continue
 		}
 		if top && key.Value == "classes" && val.Kind == yaml.MappingNode {
@@ -80,13 +81,30 @@ func (c *structureChecker) walkClasses(n *yaml.Node) {
 	if !c.checkNode(n, fieldCtx{}) {
 		return
 	}
+	seen := make(map[string]bool, len(n.Content)/2)
 	for i := 0; i+1 < len(n.Content); i += 2 {
 		key, val := n.Content[i], n.Content[i+1]
 		ctx := fieldCtx{fmt.Sprintf("class %q", key.Value), "exit"}
-		if c.checkKey(key, ctx) {
+		if c.checkKey(key, ctx) && !c.repeated(seen, key, "") {
 			c.walk(val, ctx, false)
 		}
 	}
+}
+
+// repeated reports a key seen before in the same mapping. yaml.v3 finds
+// duplicates itself, but it scans every earlier key and builds one error per
+// repeat, which is quadratic in time and memory on a crafted file.
+func (c *structureChecker) repeated(seen map[string]bool, key *yaml.Node, label string) bool {
+	if !seen[key.Value] {
+		seen[key.Value] = true
+		return false
+	}
+	c.fail(
+		key,
+		fieldCtx{label, key.Value},
+		fmt.Sprintf("mapping key %q is defined twice", key.Value),
+	)
+	return true
 }
 
 func ownerLabel(n *yaml.Node) string {
