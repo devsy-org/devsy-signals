@@ -133,3 +133,33 @@ func TestParseRejectsInvalidClassNames(t *testing.T) {
 		})
 	}
 }
+
+func TestParseRejectsControlAndBidiSummary(t *testing.T) {
+	t.Parallel()
+	const want = "summary must not contain control or bidirectional characters"
+	for name, escapes := range map[string][]string{
+		"C0":       {"\\u0000", "\\u0001", "\\u0009", "\\u001b", "\\u001f"},
+		"DEL":      {"\\u007f"},
+		"C1":       {"\\u0080", "\\u0090", "\\u009f"},
+		"marks":    {"\\u200e", "\\u200f"},
+		"embed":    {"\\u202a", "\\u202b", "\\u202c", "\\u202d", "\\u202e"},
+		"isolates": {"\\u2066", "\\u2067", "\\u2068", "\\u2069"},
+	} {
+		for _, escape := range escapes {
+			t.Run(name+" "+escape, func(t *testing.T) {
+				t.Parallel()
+				entry := "  - {code: a.b, class: internal, retryable: false, exit: 1, summary: \"x" +
+					escape + "y\"}\n"
+				_, err := registry.Parse([]byte(header + entry))
+				assert.ErrorContains(t, err, want)
+			})
+		}
+	}
+}
+
+func TestParseAcceptsPlainSummaryPunctuation(t *testing.T) {
+	t.Parallel()
+	entry := "  - {code: a.b, class: internal, retryable: false, exit: 1, summary: \"Caf\\u00e9 (\\u2013) 'ok'.\"}\n"
+	_, err := registry.Parse([]byte(header + entry))
+	require.NoError(t, err)
+}

@@ -9,6 +9,7 @@ import (
 	"os"
 	"regexp"
 	"strings"
+	"unicode"
 
 	"gopkg.in/yaml.v3"
 )
@@ -183,12 +184,39 @@ func (f File) checkEntry(e Entry, seen, reserved map[string]bool) error {
 		return fmt.Errorf("code %q has exit %d, class %s needs %d", e.Code, e.Exit, e.Class, exit)
 	case reserved[ConstName(e.Code)]:
 		return fmt.Errorf("code %q generates the reserved Go name %s", e.Code, ConstName(e.Code))
-	case strings.TrimSpace(e.Summary) == "":
-		return fmt.Errorf("code %q summary must not be blank", e.Code)
-	case strings.ContainsAny(e.Summary, "\r\n\v\f\u0085\u2028\u2029"):
-		return fmt.Errorf("code %q summary must be a single line", e.Code)
+	}
+	return checkSummary(e.Code, e.Summary)
+}
+
+const lineBreaks = "\r\n\v\f\u0085\u2028\u2029"
+
+func checkSummary(code, summary string) error {
+	if strings.TrimSpace(summary) == "" {
+		return fmt.Errorf("code %q summary must not be blank", code)
+	}
+	if strings.ContainsAny(summary, lineBreaks) {
+		return fmt.Errorf("code %q summary must be a single line", code)
+	}
+	if strings.IndexFunc(summary, unsafeRune) >= 0 {
+		return fmt.Errorf(
+			"code %q summary must not contain control or bidirectional characters", code)
 	}
 	return nil
+}
+
+// unsafeRune reports control characters and the bidirectional marks,
+// embeddings, overrides and isolates that can reorder text in a terminal.
+func unsafeRune(r rune) bool {
+	switch {
+	case unicode.IsControl(r):
+		return true
+	case r == '\u200e' || r == '\u200f':
+		return true
+	case r >= '\u202a' && r <= '\u202e':
+		return true
+	default:
+		return r >= '\u2066' && r <= '\u2069'
+	}
 }
 
 func validCode(code string) bool {
