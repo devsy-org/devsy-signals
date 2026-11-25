@@ -24,10 +24,10 @@ type publishedCode struct {
 }
 
 type rawPublishedCode struct {
-	Code      string `yaml:"code"`
-	Class     string `yaml:"class"`
-	Retryable *bool  `yaml:"retryable"`
-	Status    string `yaml:"status"`
+	Code      string      `yaml:"code"`
+	Class     string      `yaml:"class"`
+	Retryable *strictBool `yaml:"retryable"`
+	Status    string      `yaml:"status"`
 }
 
 // LoadInventory reads a published inventory with strict YAML decoding.
@@ -80,7 +80,9 @@ func (i *Inventory) addPublished(entry rawPublishedCode) error {
 		return fmt.Errorf("inventory code %q is listed twice", entry.Code)
 	}
 	i.add(entry.Code, publishedCode{
-		class: entry.Class, retryable: *entry.Retryable, retired: entry.Status == retiredStatus,
+		class:     entry.Class,
+		retryable: bool(*entry.Retryable),
+		retired:   entry.Status == retiredStatus,
 	})
 	return nil
 }

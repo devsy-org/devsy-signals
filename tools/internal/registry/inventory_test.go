@@ -98,3 +98,27 @@ func TestLoadInventoryNullEntries(t *testing.T) {
 		})
 	}
 }
+
+func TestRetryableMustBeYAMLBoolean(t *testing.T) {
+	t.Parallel()
+	for _, value := range []string{"off", "yes", "on", "no", "y", "n", "'true'", "1"} {
+		t.Run(value, func(t *testing.T) {
+			t.Parallel()
+			inventory := "codes:\n  - {code: sample.error, class: internal, retryable: " + value +
+				", status: active}\n"
+			_, err := registry.LoadInventory(strings.NewReader(inventory))
+			require.ErrorContains(t, err, "retryable must be true or false")
+
+			src := "classes: {internal: 1}\ncodes:\n  - {code: sample.error, class: internal, retryable: " +
+				value + ", exit: 1, summary: Sample}\n"
+			_, err = registry.Parse([]byte(src))
+			require.ErrorContains(t, err, "retryable must be true or false")
+		})
+	}
+	for _, value := range []string{"true", "false"} {
+		inventory := "codes:\n  - {code: sample.error, class: internal, retryable: " + value +
+			", status: active}\n"
+		_, err := registry.LoadInventory(strings.NewReader(inventory))
+		require.NoError(t, err)
+	}
+}

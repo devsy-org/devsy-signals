@@ -72,12 +72,25 @@ func decodeYAML(src io.Reader, name string, dst any) error {
 	return nil
 }
 
+// strictBool accepts only the YAML true and false literals. yaml.v3 otherwise
+// reads the YAML 1.1 words on, off, yes and no into a bool.
+type strictBool bool
+
+func (b *strictBool) UnmarshalYAML(n *yaml.Node) error {
+	var v bool
+	if n.Kind != yaml.ScalarNode || n.Tag != "!!bool" || n.Decode(&v) != nil {
+		return fmt.Errorf("line %d: retryable must be true or false", n.Line)
+	}
+	*b = strictBool(v)
+	return nil
+}
+
 type rawEntry struct {
-	Code      string `yaml:"code"`
-	Class     string `yaml:"class"`
-	Retryable *bool  `yaml:"retryable"`
-	Exit      int    `yaml:"exit"`
-	Summary   string `yaml:"summary"`
+	Code      string      `yaml:"code"`
+	Class     string      `yaml:"class"`
+	Retryable *strictBool `yaml:"retryable"`
+	Exit      int         `yaml:"exit"`
+	Summary   string      `yaml:"summary"`
 }
 
 type rawFile struct {
@@ -94,7 +107,11 @@ func (r rawFile) file() (File, error) {
 			continue
 		}
 		f.Codes = append(f.Codes, Entry{
-			Code: e.Code, Class: e.Class, Retryable: *e.Retryable, Exit: e.Exit, Summary: e.Summary,
+			Code:      e.Code,
+			Class:     e.Class,
+			Retryable: bool(*e.Retryable),
+			Exit:      e.Exit,
+			Summary:   e.Summary,
 		})
 	}
 	return f, errors.Join(errs...)
