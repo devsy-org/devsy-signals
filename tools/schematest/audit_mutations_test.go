@@ -97,6 +97,7 @@ func conditionalMutations(typ string) []auditMutation {
 				set:  map[string]any{attrkey.RequesterKind: "local_user"},
 			},
 			{name: "invalid adapter ID", set: map[string]any{attrkey.UserID: "cursor:"}},
+			{name: "NUL agent name", set: map[string]any{attrkey.AgentName: "agent\x00"}},
 		}
 	case envelope.AuditCredentialIssue:
 		return []auditMutation{

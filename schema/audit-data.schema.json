@@ -14,16 +14,25 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "devsy.credential.grant": {
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "devsy.route.name": {
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         }
       },
@@ -81,17 +90,26 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "devsy.credential.fingerprint": {
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "pattern": "^[0-9a-f]{12}$",
           "type": "string"
         },
         "devsy.credential.grant": {
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "devsy.credential.issuer": {
@@ -100,6 +118,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "devsy.credential.mode": {
@@ -109,12 +130,18 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "devsy.credential.permissions": {
           "items": {
             "maxLength": 256,
             "minLength": 1,
+            "not": {
+              "pattern": "\\x00"
+            },
             "pattern": "^[a-z_]+:(read|write)$",
             "type": "string"
           },
@@ -147,12 +174,18 @@
         "devsy.credential.fingerprint": {
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "pattern": "^[0-9a-f]{12}$",
           "type": "string"
         },
         "devsy.credential.grant": {
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "devsy.credential.revoke_result": {
@@ -163,6 +196,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         }
       },
@@ -179,11 +215,17 @@
         "devsy.credential.grant": {
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "devsy.route.name": {
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "http.request.body.size": {
@@ -205,6 +247,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "http.response.body.size": {
@@ -300,6 +345,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "server.address": {
@@ -320,6 +368,9 @@
           ],
           "maxLength": 253,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "server.port": {
@@ -402,6 +453,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "devsy.egress.last_seen": {
@@ -412,6 +466,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "devsy.egress.rule_index": {
@@ -436,6 +493,9 @@
           ],
           "maxLength": 253,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "server.port": {
@@ -523,6 +583,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "network.peer.address": {
@@ -540,6 +603,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "server.address": {
@@ -560,6 +626,9 @@
           ],
           "maxLength": 253,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "server.port": {
@@ -585,6 +654,9 @@
           "items": {
             "maxLength": 256,
             "minLength": 1,
+            "not": {
+              "pattern": "\\x00"
+            },
             "type": "string"
           },
           "maxItems": 32,
@@ -598,6 +670,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         }
       },
@@ -650,6 +725,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "process.exit.code": {
@@ -673,6 +751,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         }
       },
@@ -692,6 +773,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "devsy.duration_ms": {
@@ -701,6 +785,9 @@
         "devsy.provider.name": {
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         }
       },
@@ -733,6 +820,9 @@
             ],
             "maxLength": 256,
             "minLength": 1,
+            "not": {
+              "pattern": "\\x00"
+            },
             "type": "string"
           },
           "maxItems": 32,
@@ -746,6 +836,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         }
       },
@@ -775,6 +868,9 @@
               "user.id": {
                 "maxLength": 256,
                 "minLength": 1,
+                "not": {
+                  "pattern": "\\x00"
+                },
                 "pattern": "^(claude|cursor):[A-Za-z0-9_-]{1,128}$",
                 "type": "string"
               }
@@ -797,6 +893,9 @@
               "user.id": {
                 "maxLength": 64,
                 "minLength": 1,
+                "not": {
+                  "pattern": "\\x00"
+                },
                 "pattern": "^[^\\x00-\\x1f\\x7f-\\x9f\u2028\u2029]+$",
                 "type": "string"
               }
@@ -811,11 +910,17 @@
         "devsy.agent.name": {
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "devsy.request.id_hash": {
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "pattern": "^[0-9a-f]{64}$",
           "type": "string"
         },
@@ -828,6 +933,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "devsy.requester.kind": {
@@ -837,11 +945,17 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "user.id": {
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "vcs.ref.head.name": {
@@ -852,6 +966,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "vcs.repository.name": {
@@ -862,6 +979,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         }
       },
@@ -885,11 +1005,17 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         },
         "devsy.provider.name": {
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         }
       },
@@ -915,6 +1041,9 @@
           ],
           "maxLength": 256,
           "minLength": 1,
+          "not": {
+            "pattern": "\\x00"
+          },
           "type": "string"
         }
       },

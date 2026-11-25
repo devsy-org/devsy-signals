@@ -1,6 +1,7 @@
 package envelope
 
 import (
+	"encoding"
 	"encoding/json"
 	"math"
 	"net/netip"
@@ -14,19 +15,38 @@ import (
 )
 
 func (s auditSpec) validValue(rule auditRule, value any) bool {
+	if !plainAuditValue(value) {
+		return false
+	}
 	v := reflect.ValueOf(value)
 	defaults := s.Defaults[rule.Type]
 	switch rule.Type {
 	case "array":
 		return s.validArray(rule, v)
 	case "boolean":
-		return v.Kind() == reflect.Bool && (rule.Const == nil || v.Bool() == *rule.Const)
+		return validAuditBool(rule, v)
 	case "integer":
 		return validAuditInteger(rule, defaults, value)
 	case "string":
 		return validAuditString(rule, defaults, value)
 	default:
 		return false
+	}
+}
+
+func validAuditBool(rule auditRule, v reflect.Value) bool {
+	return v.Kind() == reflect.Bool && (rule.Const == nil || v.Bool() == *rule.Const)
+}
+
+func plainAuditValue(value any) bool {
+	switch value.(type) {
+	case json.Marshaler, encoding.TextMarshaler:
+		return false
+	case json.Number:
+		return true
+	default:
+		t := reflect.TypeOf(value)
+		return t != nil && t.PkgPath() == ""
 	}
 }
 
@@ -69,7 +89,8 @@ func auditText(value any) (string, bool) {
 }
 
 func validAuditText(rule, defaults auditRule, text string) bool {
-	return utf8.ValidString(text) && len(text) >= auditLimit(rule.MinBytes, defaults.MinBytes) &&
+	return utf8.ValidString(text) && strings.IndexByte(text, 0) < 0 &&
+		len(text) >= auditLimit(rule.MinBytes, defaults.MinBytes) &&
 		len(text) <= auditLimit(rule.MaxBytes, defaults.MaxBytes) &&
 		(rule.Enum == nil || slices.Contains(rule.Enum, text)) && matchesAuditPattern(rule.Pattern, text)
 }

@@ -60,6 +60,7 @@ func text(f, defaults field) (node, error) {
 		typeKey:     f.Type,
 		"minLength": limit(f.MinBytes, defaults.MinBytes),
 		"maxLength": limit(f.MaxBytes, defaults.MaxBytes),
+		"not":       node{patternKey: `\x00`},
 	}
 	if f.Enum != nil {
 		out["enum"] = f.Enum
