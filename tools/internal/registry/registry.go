@@ -279,19 +279,12 @@ func checkSummary(code, summary string) error {
 	return nil
 }
 
-// unsafeRune reports control characters and the bidirectional marks,
-// embeddings, overrides and isolates that can reorder text in a terminal.
+// unsafeRune reports control characters, the Bidi_Control set (the Arabic
+// letter mark, marks, embeddings, overrides and isolates) and U+180E, which
+// Unicode now classes as a format character. Other format characters such as
+// U+00AD, U+200B to U+200D, U+2060 to U+2064 and U+FEFF stay accepted.
 func unsafeRune(r rune) bool {
-	switch {
-	case unicode.IsControl(r):
-		return true
-	case r == '\u200e' || r == '\u200f':
-		return true
-	case r >= '\u202a' && r <= '\u202e':
-		return true
-	default:
-		return r >= '\u2066' && r <= '\u2069'
-	}
+	return unicode.IsControl(r) || unicode.Is(unicode.Bidi_Control, r) || r == '\u180e'
 }
 
 func validCode(code string) bool {
