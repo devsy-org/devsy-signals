@@ -89,24 +89,24 @@ func TestInvalidFixturesFailSchema(t *testing.T) {
 func TestGoValidatorAgreesWithSchema(t *testing.T) {
 	t.Parallel()
 	s := compile(t)
+	goOnly := loadGoOnly(t)
 	for _, dir := range []string{"valid", "invalid"} {
 		for _, path := range fixtureFiles(t, dir) {
-			t.Run(dir+"/"+filepath.Base(path), func(t *testing.T) {
+			name := dir + "/" + filepath.Base(path)
+			reason := goOnly[name]
+			delete(goOnly, name)
+			t.Run(name, func(t *testing.T) {
 				t.Parallel()
 				raw, err := readFile(path)
 				require.NoError(t, err)
-				schemaErr, goErr := schemaVerdict(t, s, raw), goVerdict(raw)
-				assert.Equal(
+				assert.NoError(
 					t,
-					schemaErr == nil,
-					goErr == nil,
-					"schema: %v, go: %v",
-					schemaErr,
-					goErr,
+					differentialVerdict(reason, schemaVerdict(t, s, raw), goVerdict(raw)),
 				)
 			})
 		}
 	}
+	assert.Empty(t, goOnly, "missing Go-only fixtures")
 }
 
 func TestSchemaClassesMatchRegistry(t *testing.T) {
