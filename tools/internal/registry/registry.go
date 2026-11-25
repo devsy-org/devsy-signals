@@ -118,6 +118,34 @@ func (r rawFile) file() (File, error) {
 	return f, errors.Join(errs...)
 }
 
+const (
+	minExit = 1
+	maxExit = 125 // shells reserve 0 and 126 and above
+
+	// signalClass alone may use signalExit, the 128+SIGINT convention for a
+	// canceled run, which falls outside the shell-safe range.
+	signalClass = "canceled"
+	signalExit  = 130
+)
+
+func checkClassExit(class string, exit int) error {
+	switch {
+	case class == signalClass && exit == signalExit:
+		return nil
+	case exit == signalExit:
+		return fmt.Errorf("class %q exit %d is reserved for class %s", class, exit, signalClass)
+	case exit < minExit || exit > maxExit:
+		return fmt.Errorf(
+			"class %q exit %d must be between %d and %d",
+			class,
+			exit,
+			minExit,
+			maxExit,
+		)
+	}
+	return nil
+}
+
 // Validate checks code format, uniqueness, class membership, exit codes and
 // that no code generates a Go identifier the generated package declares.
 func (f File) Validate() error {
@@ -125,9 +153,12 @@ func (f File) Validate() error {
 	if len(f.Classes) == 0 {
 		errs = append(errs, errors.New("classes is empty"))
 	}
-	for class := range f.Classes {
+	for class, exit := range f.Classes {
 		if !classRE.MatchString(class) {
 			errs = append(errs, fmt.Errorf("class %q must be lowercase snake_case", class))
+		}
+		if err := checkClassExit(class, exit); err != nil {
+			errs = append(errs, err)
 		}
 	}
 	reserved := f.reservedNames()

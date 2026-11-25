@@ -163,3 +163,49 @@ func TestParseAcceptsPlainSummaryPunctuation(t *testing.T) {
 	_, err := registry.Parse([]byte(header + entry))
 	require.NoError(t, err)
 }
+
+const (
+	usage    = "usage"
+	canceled = "canceled"
+)
+
+func TestParseChecksClassExitRange(t *testing.T) {
+	t.Parallel()
+	for name, tc := range map[string]struct {
+		classes string
+		want    string
+	}{
+		"zero":                  {"{" + usage + ": 0}", usage},
+		"126":                   {"{" + usage + ": 126}", usage},
+		"127":                   {"{" + usage + ": 127}", usage},
+		"128":                   {"{" + usage + ": 128}", usage},
+		"129":                   {"{" + usage + ": 129}", usage},
+		"131":                   {"{" + usage + ": 131}", usage},
+		"255":                   {"{" + usage + ": 255}", usage},
+		"256":                   {"{" + usage + ": 256}", usage},
+		"negative":              {"{" + usage + ": -1}", usage},
+		"130 on another class":  {"{" + usage + ": 130}", usage},
+		"canceled at 126":       {"{" + canceled + ": 126}", canceled},
+		"canceled at 129":       {"{" + canceled + ": 129}", canceled},
+		"canceled at 255":       {"{" + canceled + ": 255}", canceled},
+		"130 beside canceled":   {"{" + canceled + ": 130, " + usage + ": 130}", usage},
+		"130 and another class": {"{" + canceled + ": 1, " + usage + ": 130}", usage},
+		"one":                   {"{" + usage + ": 1}", ""},
+		"two":                   {"{" + usage + ": 2}", ""},
+		"75":                    {"{" + usage + ": 75}", ""},
+		"124":                   {"{" + usage + ": 124}", ""},
+		"125":                   {"{" + usage + ": 125}", ""},
+		"canceled at 130":       {"{" + canceled + ": 130}", ""},
+		"canceled in range":     {"{" + canceled + ": 125}", ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := registry.Parse([]byte("classes: " + tc.classes + "\ncodes: []\n"))
+			if tc.want == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, "class \""+tc.want+"\" exit")
+		})
+	}
+}
