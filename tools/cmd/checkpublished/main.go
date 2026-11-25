@@ -226,6 +226,10 @@ func gitBlob(ctx context.Context, root, object string) ([]byte, error) {
 		_ = cmd.Process.Kill()
 	}
 	if err := cmd.Wait(); err != nil && readErr == nil {
+		// A context kill reports "signal: killed"; keep the cause.
+		if ctxErr := ctx.Err(); ctxErr != nil {
+			err = ctxErr
+		}
 		return nil, fmt.Errorf("git show: %w", err)
 	}
 	return data, readErr
