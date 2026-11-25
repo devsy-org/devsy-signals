@@ -217,7 +217,7 @@ func TestErrorClassMatchesRegistry(t *testing.T) {
 	e := envelope.Envelope{
 		V: 1, Kind: envelope.KindError, Type: "a.b", ID: envelope.NewID(),
 		TS: envelope.FormatTime(time.Unix(0, 0)), Src: srcCLI,
-		Error: &envelope.Error{Code: codes.Timeout, Message: "m", Class: codes.ClassTimeout},
+		Error: &envelope.Error{Code: codes.Timeout.String(), Message: "m", Class: codes.ClassTimeout},
 	}
 	if err := e.Validate(); err != nil {
 		t.Fatal(err)
