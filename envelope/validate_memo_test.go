@@ -5,6 +5,7 @@ import (
 	"errors"
 	"slices"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/devsy-org/devsy-signals/envelope"
@@ -39,7 +40,7 @@ func TestValidatePointerChain(t *testing.T) {
 func TestValidateExpandedBudgetBoundary(t *testing.T) {
 	t.Parallel()
 	e := resultRecord(t)
-	e.Data[memoField] = doubledSlice(15) // 65,535 values plus the data object.
+	e.Data[""] = doubledSlice(15) // 65,535 one-byte charges plus the data object.
 	checkVerdict(t, "at budget", e.Validate(), nil)
 	e.Data["extra"] = 0
 	checkVerdict(t, "over budget", e.Validate(), envelope.ErrTooLarge)
@@ -49,10 +50,12 @@ func TestValidateMemoKeepsNearLimitRecord(t *testing.T) {
 	t.Parallel()
 	e := resultRecord(t)
 	e.Data[memoField] = slices.Repeat([]any{doubledSlice(7)}, 120)
+	e.Data["memo-padding"] = ""
+	e.Data["memo-padding"] = strings.Repeat("p", 64893-len(mustMarshalJSON(t, e)))
 	checkVerdict(t, "Validate", e.Validate(), nil)
 	wire := mustMarshalJSON(t, e)
-	if len(wire) < 60000 || len(wire) >= 64<<10 {
-		t.Fatalf("expected a near-limit record, got %d bytes", len(wire))
+	if len(wire) != 64893 {
+		t.Fatalf("expected a 64,893-byte record, got %d bytes", len(wire))
 	}
 	_, err := envelope.DecodeStrict(wire)
 	checkVerdict(t, "DecodeStrict", err, nil)

@@ -11,7 +11,8 @@ func (e Envelope) checkData() error {
 	if e.Kind == KindAudit || e.Data == nil {
 		return nil
 	}
-	// Every visited value uses at least one byte in the expanded wire record.
+	// Charges are a lower bound on expanded JSON bytes: values cost at least
+	// one byte, and encoding does not shrink strings, keys, numbers or bytes.
 	checks := dataChecks{seen: make(map[dataVisit]int), remaining: maxRecordBytes}
 	if err := checks.valueErr(reflect.ValueOf(e.Data), 2); err != nil {
 		return fmt.Errorf("data: %w", err)
@@ -43,7 +44,7 @@ func (c *dataChecks) valueErr(v reflect.Value, depth int) error {
 		return err
 	}
 	if !dataContainer(v) {
-		return dataLeafErr(v)
+		return c.dataLeafErr(v)
 	}
 	if depth > maxDepth {
 		return fmt.Errorf("%w: limit is %d", ErrDepth, maxDepth)
@@ -51,16 +52,20 @@ func (c *dataChecks) valueErr(v reflect.Value, depth int) error {
 	return c.visitContainer(v, depth, before)
 }
 
-func (c *dataChecks) charge(visits int) error {
-	if visits > c.remaining {
-		return fmt.Errorf(
-			"%w: expanded data exceeds the %d-value traversal limit",
-			ErrTooLarge,
-			maxRecordBytes,
-		)
+func (c *dataChecks) charge(n int) error {
+	if n > c.remaining {
+		return dataBudgetErr()
 	}
-	c.remaining -= visits
+	c.remaining -= n
 	return nil
+}
+
+func dataBudgetErr() error {
+	return fmt.Errorf(
+		"%w: expanded data exceeds the %d-byte record limit",
+		ErrTooLarge,
+		maxRecordBytes,
+	)
 }
 
 func (c *dataChecks) visitContainer(v reflect.Value, depth, before int) error {
@@ -95,17 +100,16 @@ func (c *dataChecks) containerErr(v reflect.Value, depth int) error {
 	return c.elementsErr(v, depth)
 }
 
-func dataLeafErr(v reflect.Value) error {
+func (c *dataChecks) dataLeafErr(v reflect.Value) error {
 	switch v.Kind() {
-	case reflect.Invalid, reflect.Slice, reflect.Bool:
+	case reflect.Invalid, reflect.Bool:
 		return nil
+	case reflect.Slice:
+		return c.charge(v.Len())
 	case reflect.Map:
 		return dataMapTypeErr(v.Type())
 	case reflect.String:
-		if v.Type() == reflect.TypeFor[json.Number]() {
-			return numberErr(v.String())
-		}
-		return wireStringErr(v.String())
+		return c.stringLeafErr(v)
 	case reflect.Float32, reflect.Float64:
 		return floatErr(v.Float())
 	case reflect.Struct:
@@ -113,6 +117,21 @@ func dataLeafErr(v reflect.Value) error {
 	default:
 		return dataIntErr(v)
 	}
+}
+
+func (c *dataChecks) stringLeafErr(v reflect.Value) error {
+	text := v.String()
+	if v.Type() == reflect.TypeFor[json.Number]() {
+		// The value visit already pays for the first byte of the number.
+		if err := c.charge(max(0, len(text)-1)); err != nil {
+			return err
+		}
+		return numberErr(text)
+	}
+	if err := c.charge(len(text)); err != nil {
+		return err
+	}
+	return wireStringErr(text)
 }
 
 func dataIntErr(v reflect.Value) error {
@@ -162,10 +181,15 @@ func (c *dataChecks) dataKeyErr(key reflect.Value) error {
 	if err != nil {
 		return err
 	}
-	if key.Kind() == reflect.String {
-		if err := wireStringErr(key.String()); err != nil {
-			return fmt.Errorf("object key: %w", err)
-		}
+	if key.Kind() != reflect.String {
+		return nil
+	}
+	text := key.String()
+	if err := c.charge(len(text)); err != nil {
+		return err
+	}
+	if err := wireStringErr(text); err != nil {
+		return fmt.Errorf("object key: %w", err)
 	}
 	return nil
 }

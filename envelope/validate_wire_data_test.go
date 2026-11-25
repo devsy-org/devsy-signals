@@ -144,7 +144,7 @@ func sharedData(levels int) any {
 }
 
 func BenchmarkValidateSharedData(b *testing.B) {
-	for _, n := range []int{8, 12, 15} {
+	for _, n := range []int{8, 12, 13} {
 		b.Run(strconv.Itoa(n), func(b *testing.B) {
 			e := resultRecord(b)
 			e.Data["payload"] = sharedData(n)
