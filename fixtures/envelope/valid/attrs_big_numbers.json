@@ -1,0 +1,14 @@
+{
+  "v": 1,
+  "kind": "log",
+  "ts": "2026-11-22T10:15:03.123Z",
+  "src": "cli",
+  "level": "info",
+  "msg": "numbers",
+  "attrs": {
+    "devsy.big": 1e400,
+    "devsy.small": 1e-400,
+    "devsy.wide": 12345678901234567890,
+    "devsy.list": [1, 2.5, 1e400, true, "x"]
+  }
+}

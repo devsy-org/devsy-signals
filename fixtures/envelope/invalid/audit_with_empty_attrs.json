@@ -1,0 +1,22 @@
+{
+  "v": 1,
+  "kind": "audit",
+  "type": "policy.apply",
+  "id": "01JD8Z3K5V7Q2M4N6P8R0S1T33",
+  "ts": "2026-11-22T10:15:03.123Z",
+  "src": "controlplane",
+  "pool": "pool-a",
+  "host": "h_01JD8Z3K5V7Q2M4N6P8R0S1T31",
+  "configVersion": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+  "policyVersion": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+  "actor": {
+    "kind": "system",
+    "id": "policy-engine"
+  },
+  "data": {
+    "devsy.policy.allow_rule_count": 12,
+    "devsy.policy.grant_names": [],
+    "devsy.policy.verify_result": "ok"
+  },
+  "attrs": {}
+}

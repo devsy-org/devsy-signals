@@ -1,7 +1,3 @@
-// Package envelope defines the Devsy record envelope, level mapping and ULID
-// minting. Readers use tolerant Decode; writers use DecodeStrict to self-check.
-// DecodeStrict checks syntax and shape only. Ingest must call DecodeStrict and
-// then Validate, and fails closed only when both pass.
 package envelope
 
 import (
@@ -10,6 +6,8 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+
+	"github.com/devsy-org/devsy-signals/schema"
 )
 
 const (
@@ -17,7 +15,7 @@ const (
 	// maxDepth is the deepest nesting of objects and arrays a record may
 	// have. The top-level object is level 1, so a record of exactly maxDepth
 	// levels is accepted and one more is rejected.
-	maxDepth = 64
+	maxDepth = schema.MaxRecordDepth
 )
 
 // Decode error categories.

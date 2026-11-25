@@ -1,0 +1,219 @@
+{
+  "version": 4,
+  "defaults": {
+    "string": {"minBytes": 1, "maxBytes": 256},
+    "integer": {"minimum": 0},
+    "array": {"maxItems": 32}
+  },
+  "envelope": {
+    "required": ["policyVersion", "configVersion"],
+    "versionHash": {"schemaRef": "envelope.schema.json#/$defs/versionHash"}
+  },
+  "uploader": {"skipLocalOnly": true},
+  "ingest": {
+    "strictDecode": true,
+    "rejectLocalOnly": true,
+    "declaredNames": {
+      "devsy.route.name": "configured routes",
+      "devsy.credential.grant": "configured credential grants"
+    },
+    "tokenScan": ["server.address"],
+    "forbiddenContents": [
+      "secrets", "header values", "prompts", "bodies", "full URLs",
+      "command arguments", "emails", "display names"
+    ]
+  },
+  "types": {
+    "session.request": {
+      "keys": {
+        "devsy.request.id_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$", "required": true},
+        "devsy.request.outcome": {"type": "string", "enum": ["new", "duplicate", "queued", "pool_full"], "required": true},
+        "devsy.agent.name": {"type": "string", "required": true},
+        "devsy.requester.kind": {"type": "string", "enum": ["local_user", "adapter"], "required": true},
+        "user.id": {
+          "type": "string",
+          "variants": {
+            "local_user": {
+              "maxBytes": 64,
+              "pattern": "^[^\\x00-\\x1f\\x7f-\\x9f\u2028\u2029]+$",
+              "required": true,
+              "provenance": "OS login verified by the writer"
+            },
+            "adapter": {"pattern": "^(claude|cursor):[A-Za-z0-9_-]{1,128}$"}
+          },
+          "byKey": "devsy.requester.kind"
+        },
+        "vcs.repository.name": {"type": "string", "format": "owner-name", "required": true},
+        "vcs.ref.head.name": {"type": "string", "format": "git-ref-name"}
+      }
+    },
+    "session.spawn": {
+      "keys": {
+        "devsy.provider.name": {"type": "string", "required": true},
+        "container.image.id": {"type": "string", "format": "sha256-digest"}
+      }
+    },
+    "session.ready": {
+      "keys": {
+        "devsy.provider.name": {"type": "string", "required": true},
+        "container.image.id": {"type": "string", "format": "sha256-digest", "required": true},
+        "devsy.duration_ms": {"type": "integer", "required": true}
+      }
+    },
+    "session.start": {
+      "keys": {
+        "process.executable.name": {"type": "string", "format": "basename", "required": true},
+        "devsy.job.timeout_ms": {"type": "integer", "required": true}
+      }
+    },
+    "session.idle": {
+      "keys": {
+        "devsy.idle_since": {"type": "string", "format": "envelope-timestamp", "required": true}
+      }
+    },
+    "session.end": {
+      "keys": {
+        "devsy.session.end_reason": {
+          "type": "string",
+          "enum": ["completed", "failed", "idle", "ttl", "job_timeout", "interrupted", "pool_restart"],
+          "required": true
+        },
+        "process.exit.code": {"type": "integer", "allowNegative": true},
+        "devsy.duration_ms": {"type": "integer", "required": true}
+      }
+    },
+    "session.reclaim": {
+      "keys": {
+        "devsy.reclaim.result": {"type": "string", "enum": ["deleted", "partial", "failed"], "required": true},
+        "devsy.reclaim.remaining": {
+          "type": "array",
+          "items": {"type": "string", "enum": ["container", "volume", "network", "sidecar", "network_policy", "service"]}
+        },
+        "devsy.reclaim.attempts": {"type": "integer", "minimum": 1, "required": true},
+        "devsy.reclaim.orphaned": {"type": "boolean", "required": true}
+      }
+    },
+    "policy.apply": {
+      "noSession": true,
+      "keys": {
+        "devsy.policy.allow_rule_count": {"type": "integer", "required": true},
+        "devsy.policy.grant_names": {"type": "array", "items": {"type": "string"}, "required": true},
+        "devsy.policy.verify_result": {"type": "string", "enum": ["ok", "failed", "unverified"], "required": true}
+      }
+    },
+    "pool.start": {
+      "noSession": true,
+      "keys": {
+        "devsy.pool.sessions_loaded": {"type": "integer", "required": true},
+        "devsy.pool.sessions_failed": {"type": "integer", "required": true},
+        "devsy.pool.orphans_found": {"type": "integer", "required": true}
+      }
+    },
+    "credential.issue": {
+      "keys": {
+        "devsy.credential.grant": {"type": "string", "required": true},
+        "devsy.credential.mode": {"type": "string", "enum": ["inject", "mint"], "required": true},
+        "devsy.credential.issuer": {
+          "type": "string",
+          "enum": ["github-app"],
+          "requiredWhen": {"key": "devsy.credential.mode", "equals": "mint"},
+          "forbiddenWhen": {"key": "devsy.credential.mode", "equals": "inject"}
+        },
+        "devsy.credential.permissions": {
+          "type": "array",
+          "maxItems": 64,
+          "items": {"type": "string", "pattern": "^[a-z_]+:(read|write)$"},
+          "required": true
+        },
+        "devsy.credential.repository_count": {"type": "integer", "required": true},
+        "devsy.credential.ttl_ms": {"type": "integer", "required": true},
+        "devsy.credential.expires_at": {"type": "string", "format": "envelope-timestamp", "required": true},
+        "devsy.credential.fingerprint": {"type": "string", "pattern": "^[0-9a-f]{12}$", "required": true}
+      }
+    },
+    "credential.use": {
+      "keys": {
+        "devsy.credential.grant": {"type": "string", "required": true},
+        "devsy.route.name": {"type": "string", "required": true},
+        "http.request.method": {
+          "type": "string",
+          "enum": ["GET", "HEAD", "POST", "PUT", "DELETE", "CONNECT", "OPTIONS", "TRACE", "PATCH", "_OTHER"],
+          "required": true
+        },
+        "http.response.status_code": {"type": "integer"},
+        "http.request.body.size": {"type": "integer", "required": true},
+        "http.response.body.size": {"type": "integer", "required": true}
+      }
+    },
+    "credential.deny": {
+      "keys": {
+        "devsy.credential.deny_reason": {
+          "type": "string",
+          "enum": ["bad_capability", "not_granted", "scope_mismatch", "secret_missing", "issuer_error"],
+          "required": true
+        },
+        "devsy.credential.grant": {"type": "string"},
+        "devsy.route.name": {"type": "string"}
+      }
+    },
+    "credential.revoke": {
+      "keys": {
+        "devsy.credential.grant": {"type": "string", "required": true},
+        "devsy.credential.fingerprint": {"type": "string", "pattern": "^[0-9a-f]{12}$", "required": true},
+        "devsy.credential.revoke_result": {"type": "string", "enum": ["revoked", "already_expired", "failed"], "required": true}
+      }
+    },
+    "egress.deny": {
+      "keys": {
+        "server.address": {"ref": "egressAddress"},
+        "devsy.egress.address_redacted": {"ref": "egressAddressRedacted"},
+        "server.port": {"ref": "egressPort"},
+        "network.peer.address": {"type": "string", "format": "ip-literal"},
+        "devsy.egress.reason": {
+          "type": "string",
+          "enum": [
+            "not_allowed", "reserved_range", "private_range", "pool_network", "ip_literal",
+            "inject_upstream", "sni_mismatch", "sni_missing", "resolve_failed", "bad_request"
+          ],
+          "required": true
+        }
+      }
+    },
+    "egress.allow": {
+      "localOnly": true,
+      "keys": {
+        "server.address": {"ref": "egressAddress"},
+        "devsy.egress.address_redacted": {"ref": "egressAddressRedacted"},
+        "server.port": {"ref": "egressPort"},
+        "network.peer.address": {"type": "string", "format": "ip-literal", "required": true},
+        "devsy.egress.rule_index": {"type": "integer"}
+      }
+    },
+    "egress.allow.summary": {
+      "keys": {
+        "server.address": {"ref": "egressAddress"},
+        "devsy.egress.address_redacted": {"ref": "egressAddressRedacted"},
+        "server.port": {"ref": "egressPort"},
+        "devsy.egress.count": {"type": "integer", "minimum": 1, "required": true},
+        "devsy.egress.first_seen": {"type": "string", "format": "envelope-timestamp", "required": true},
+        "devsy.egress.last_seen": {"type": "string", "format": "envelope-timestamp", "required": true},
+        "devsy.egress.rule_index": {"type": "integer"}
+      }
+    }
+  },
+  "keyRules": {
+    "egressAddress": {
+      "type": "string",
+      "format": "lowercase-dns-or-ip-literal",
+      "maxBytes": 253,
+      "requiredUnless": {"key": "devsy.egress.address_redacted", "equals": true}
+    },
+    "egressAddressRedacted": {
+      "type": "boolean",
+      "const": true,
+      "requiredWhen": {"absent": "server.address"},
+      "forbiddenWhen": {"present": "server.address"}
+    },
+    "egressPort": {"type": "integer", "minimum": 1, "maximum": 65535, "required": true}
+  }
+}
