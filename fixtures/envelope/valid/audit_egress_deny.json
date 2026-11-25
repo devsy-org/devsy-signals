@@ -1,0 +1,24 @@
+{
+  "v": 1,
+  "kind": "audit",
+  "type": "egress.deny",
+  "id": "01JD8Z3K5V7Q2M4N6P8R0S1T30",
+  "ts": "2026-11-22T10:15:03.123Z",
+  "src": "pool",
+  "traceId": "0af7651916cd43dd8448eb211c80319c",
+  "operationId": "b7ad6b7169203331",
+  "pool": "pool-a",
+  "host": "h_01JD8Z3K5V7Q2M4N6P8R0S1T31",
+  "configVersion": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+  "policyVersion": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
+  "actor": {
+    "kind": "agent",
+    "id": "agent-7"
+  },
+  "session": "s_01JD8Z3K5V7Q2M4N6P8R0S1T32",
+  "data": {
+    "server.address": "example.com",
+    "server.port": 443,
+    "devsy.egress.reason": "not_allowed"
+  }
+}

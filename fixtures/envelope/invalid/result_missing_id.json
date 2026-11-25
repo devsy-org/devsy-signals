@@ -1,0 +1,13 @@
+{
+  "v": 1,
+  "kind": "result",
+  "type": "workspace.up",
+  "ts": "2026-11-22T10:15:03.123Z",
+  "src": "cli",
+  "traceId": "0af7651916cd43dd8448eb211c80319c",
+  "operationId": "00f067aa0ba902b7",
+  "data": {
+    "workspace": "my-ws",
+    "status": "running"
+  }
+}

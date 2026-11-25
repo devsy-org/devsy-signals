@@ -1,0 +1,6 @@
+{
+  "go_only/audit_session_request_ref.json": "UTF-8 byte length: 258 bytes in 129 characters",
+  "go_only/log_attr_multibyte_limit.json": "UTF-8 byte length: 4,098 bytes in 2,049 characters",
+  "go_only/log_invalid_calendar_date.json": "Calendar validity: the timestamp pattern does not check days per month",
+  "go_only/result_record_byte_limit.json": "Raw record size: 65,795 bytes exceeds the decoder's 64 KiB limit"
+}

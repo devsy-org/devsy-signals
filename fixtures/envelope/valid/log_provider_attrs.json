@@ -1,0 +1,28 @@
+{
+  "v": 1,
+  "kind": "log",
+  "ts": "2026-11-22T10:15:03.123Z",
+  "src": "provider/aws",
+  "level": "warn",
+  "msg": "retrying request",
+  "traceId": "0af7651916cd43dd8448eb211c80319c",
+  "operationId": "b7ad6b7169203331",
+  "parentOperationId": "00f067aa0ba902b7",
+  "workspace": "my-ws",
+  "attrs": {
+    "devsy.provider.name": "aws",
+    "devsy.duration_ms": 1250,
+    "devsy.raw": true,
+    "http.response.status_code": 429,
+    "devsy.tags": [
+      "a",
+      "b"
+    ]
+  },
+  "error": {
+    "code": "api.rate_limited",
+    "message": "too many requests",
+    "class": "transient",
+    "retryable": true
+  }
+}
