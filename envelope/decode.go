@@ -1,7 +1,3 @@
-// Package envelope defines the Devsy record envelope, level mapping and ULID
-// minting. Readers use tolerant Decode; writers use DecodeStrict to self-check.
-// DecodeStrict checks syntax and shape only. Ingest must call DecodeStrict and
-// then Validate, and fails closed only when both pass.
 package envelope
 
 import (

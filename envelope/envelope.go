@@ -1,7 +1,18 @@
-// Package envelope defines the Devsy record envelope: the Go types, strict
-// decoding, validation, level mapping and ULID minting. The JSON Schema in
-// schema/envelope.schema.json is the contract; Validate implements the same
-// rules.
+// Package envelope defines the Devsy record envelope Go types, level mapping
+// via [Level.Severity], and ULID minting via [NewID].
+//
+// [Decode] tolerates unknown fields and enum strings. [DecodeStrict] checks
+// syntax and shape only. Both limit raw records to 64 KiB ([ErrTooLarge]) and
+// nesting to 64 levels ([ErrDepth]).
+//
+// [Envelope.Validate] checks required fields and the audit data allow-list.
+// It applies the rules in schema/envelope.schema.json and the Go-only validation
+// constraints listed in schema/README.md. Ingest must call [DecodeStrict],
+// then [Envelope.Validate], and reject the record if either fails.
+//
+// The JSON Schema in schema/ is the contract. Differential tests in
+// tools/schematest check agreement with the Go ingest path and verify the
+// documented Go-only exceptions.
 package envelope
 
 import (
