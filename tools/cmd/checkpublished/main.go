@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"slices"
 	"strings"
+	"syscall"
 
 	"github.com/devsy-org/devsy-signals/tools/internal/registry"
 )
@@ -226,11 +227,22 @@ func gitBlob(ctx context.Context, root, object string) ([]byte, error) {
 		_ = cmd.Process.Kill()
 	}
 	if err := cmd.Wait(); err != nil && readErr == nil {
-		// A context kill reports "signal: killed"; keep the cause.
-		if ctxErr := ctx.Err(); ctxErr != nil {
-			err = ctxErr
-		}
-		return nil, fmt.Errorf("git show: %w", err)
+		return nil, fmt.Errorf("git show: %w", waitError(ctx, err))
 	}
 	return data, readErr
+}
+
+// waitError replaces a SIGKILL death with the context error once the context
+// is done: exec kills Git on cancellation, and "signal: killed" hides the
+// cause. Any other Git failure keeps its own error. syscall.WaitStatus and
+// SIGKILL exist on every platform this module builds for.
+func waitError(ctx context.Context, err error) error {
+	var exit *exec.ExitError
+	if ctxErr := ctx.Err(); ctxErr != nil && errors.As(err, &exit) {
+		status, ok := exit.Sys().(syscall.WaitStatus)
+		if ok && status.Signaled() && status.Signal() == syscall.SIGKILL {
+			return fmt.Errorf("git was stopped: %w", ctxErr)
+		}
+	}
+	return err
 }
