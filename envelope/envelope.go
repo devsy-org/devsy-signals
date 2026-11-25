@@ -1,3 +1,7 @@
+// Package envelope defines the Devsy record envelope: the Go types, strict
+// decoding, validation, level mapping and ULID minting. The JSON Schema in
+// schema/envelope.schema.json is the contract; Validate implements the same
+// rules.
 package envelope
 
 import (

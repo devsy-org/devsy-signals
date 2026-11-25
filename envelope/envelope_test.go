@@ -111,7 +111,10 @@ func TestValidateEmptyData(t *testing.T) {
 
 func TestValidateDecodedExactNumbers(t *testing.T) {
 	t.Parallel()
-	mustDecodeValid(t, []byte(logWith(exactNumberFields)))
+	mustDecodeValid(
+		t,
+		[]byte(logWith(`,"attrs":{"a":1e400,"b":12345678901234567890},"data":{"c":1e400}`)),
+	)
 }
 
 func TestValidateReportsEveryProblem(t *testing.T) {

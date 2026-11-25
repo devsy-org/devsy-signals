@@ -2,6 +2,7 @@ package envelope_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"runtime"
 	"strconv"
 	"strings"
@@ -16,8 +17,7 @@ const (
 		`"ts":"2026-11-22T10:15:03.123Z","src":"cli"`
 	errFields = `"kind":"error","type":"a.b","id":"01JD8Z3K5V7Q2M4N6P8R0S1T2W",` +
 		`"ts":"2026-11-22T10:15:03.123Z","src":"cli"`
-	errBody           = `"code":"a.b","message":"m","class":"internal","retryable":false`
-	exactNumberFields = `,"attrs":{"a":1e400,"b":12345678901234567890},"data":{"c":1e400}`
+	errBody = `"code":"a.b","message":"m","class":"internal","retryable":false`
 )
 
 func logWith(extra string) string { return `{"v":1,` + logFields + extra + "}" }
@@ -146,14 +146,73 @@ func BenchmarkDecodeNumericArray(b *testing.B) {
 
 func TestDecodeKeepsNumbersExact(t *testing.T) {
 	t.Parallel()
-	e, err := envelope.Decode([]byte(logWith(exactNumberFields)))
+	for name, decode := range map[string]func([]byte) (envelope.Envelope, error){
+		"Decode":       envelope.Decode,
+		"DecodeStrict": envelope.DecodeStrict,
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			for _, number := range []string{
+				"9007199254740993", "9223372036854775808", "-9223372036854775809",
+				"12345678901234567890", "1.0000000000000000001", "1e400", "-0",
+			} {
+				t.Run(number, func(t *testing.T) {
+					t.Parallel()
+					checkNumberRoundTrip(t, decode, number)
+				})
+			}
+		})
+	}
+}
+
+func checkNumberRoundTrip(
+	t *testing.T,
+	decode func([]byte) (envelope.Envelope, error),
+	number string,
+) {
+	t.Helper()
+	fields := fmt.Sprintf(
+		`{"direct":%s,"nested":{"object":%s,"array":[%s]}}`,
+		number,
+		number,
+		number,
+	)
+	e, err := decode([]byte(resultWith(`,"data":` + fields + `,"attrs":` + fields)))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("decode input: %v", err)
 	}
-	if got := e.Attrs["a"]; got != json.Number("1e400") {
-		t.Fatalf("attrs.a = %#v", got)
+	checkNumbers(t, e, json.Number(number))
+	wire, err := e.MarshalJSON()
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
 	}
-	if got := e.Attrs["b"]; got != json.Number("12345678901234567890") {
-		t.Fatalf("attrs.b = %#v", got)
+	back, err := decode(wire)
+	if err != nil {
+		t.Fatalf("decode marshaled envelope: %v", err)
+	}
+	checkNumbers(t, back, json.Number(number))
+}
+
+func checkNumbers(t *testing.T, e envelope.Envelope, want json.Number) {
+	t.Helper()
+	for prefix, fields := range map[string]map[string]any{"data.": e.Data, "attrs.": e.Attrs} {
+		checkNumber(t, prefix+"direct", fields["direct"], want)
+		nested, ok := fields["nested"].(map[string]any)
+		if !ok {
+			t.Fatalf("%snested: got %T, want object", prefix, fields["nested"])
+		}
+		checkNumber(t, prefix+"nested.object", nested["object"], want)
+		array, ok := nested["array"].([]any)
+		if !ok || len(array) != 1 {
+			t.Fatalf("%snested.array: got %#v, want a one-element array", prefix, nested["array"])
+		}
+		checkNumber(t, prefix+"nested.array[0]", array[0], want)
+	}
+}
+
+func checkNumber(t *testing.T, path string, value any, want json.Number) {
+	t.Helper()
+	if got, ok := value.(json.Number); !ok || got != want {
+		t.Errorf("%s: got %T(%v), want json.Number(%q)", path, value, value, want)
 	}
 }
