@@ -24,7 +24,9 @@ const (
 func compile(t *testing.T) *jsonschema.Schema {
 	t.Helper()
 	c := jsonschema.NewCompiler()
-	for _, name := range []string{"envelope.schema.json", "audit-data.schema.json"} {
+	for _, name := range []string{
+		"envelope.schema.json", "audit-data.schema.json", "record-depth.schema.json",
+	} {
 		raw, err := readFile(filepath.Join(root, "schema", name))
 		require.NoError(t, err)
 		doc, err := jsonschema.UnmarshalJSON(bytes.NewReader(raw))

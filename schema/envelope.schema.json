@@ -1,6 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://github.com/devsy-org/devsy-signals/schema/envelope.schema.json",
+  "$ref": "record-depth.schema.json",
   "title": "Devsy record envelope",
   "type": "object",
   "required": [

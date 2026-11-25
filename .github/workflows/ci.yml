@@ -43,6 +43,7 @@ jobs:
       - name: Check generated files are current
         run: |
           cd tools && go run ./cmd/gencodes && go run ./cmd/genauditschema
+          go run ./cmd/gendepthschema
           test -z "$(git status --porcelain)" || { git status --porcelain; git diff; exit 1; }
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
         with:
