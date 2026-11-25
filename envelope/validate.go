@@ -48,6 +48,11 @@ func (p *problems) add(ok bool, format string, args ...any) {
 // Data validation charges a lower bound on expanded [Envelope.MarshalJSON]
 // bytes. It returns [ErrTooLarge] if those charges exceed 64 KiB. A record
 // that fits the wire limit cannot exhaust this budget.
+//
+// Data built by a writer must be a tree. Cycles are rejected, and a subtree
+// that is shared costs its expanded size. Untrusted input reaches Validate
+// through [DecodeStrict], which bounds the record to 64 KiB and the depth to
+// 64 before any Go value exists.
 func (e Envelope) Validate() error {
 	return errors.Join(
 		e.checkHeader(),
