@@ -32,6 +32,31 @@ func TestEmptyDataStaysOnTheWire(t *testing.T) {
 	}
 }
 
+func TestConfigVersionJSON(t *testing.T) {
+	t.Parallel()
+	const configHash = "sha256:" +
+		"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"
+	data, err := json.Marshal(envelope.Envelope{ConfigVersion: configHash})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(string(data), `"configVersion":"`+configHash+`"`) {
+		t.Fatalf("configVersion missing from %s", data)
+	}
+	var e envelope.Envelope
+	if err := json.Unmarshal(data, &e); err != nil || e.ConfigVersion != configHash {
+		t.Fatalf("got configVersion %q, %v; want %q", e.ConfigVersion, err, configHash)
+	}
+}
+
+func TestEmptyConfigVersionIsOmitted(t *testing.T) {
+	t.Parallel()
+	data, err := json.Marshal(envelope.Envelope{ConfigVersion: ""})
+	if err != nil || strings.Contains(string(data), `"configVersion"`) {
+		t.Fatalf("got %s, %v; want configVersion omitted", data, err)
+	}
+}
+
 func TestSeverity(t *testing.T) {
 	t.Parallel()
 	want := map[envelope.Level]int{

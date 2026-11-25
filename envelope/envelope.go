@@ -57,26 +57,31 @@ type Error struct {
 // Envelope is one record. Optional string fields are omitted when empty. An
 // empty string is never a valid value for any field, so empty means absent.
 type Envelope struct {
-	V                 int            `json:"v"`
-	Kind              Kind           `json:"kind"`
-	Type              string         `json:"type,omitempty"`
-	ID                string         `json:"id,omitempty"`
-	TS                string         `json:"ts"`
-	Src               Source         `json:"src"`
-	Level             Level          `json:"level,omitempty"`
-	Msg               string         `json:"msg,omitempty"`
-	TraceID           string         `json:"traceId,omitempty"`
-	OperationID       string         `json:"operationId,omitempty"`
-	ParentOperationID string         `json:"parentOperationId,omitempty"`
-	Workspace         string         `json:"workspace,omitempty"`
-	Session           string         `json:"session,omitempty"`
-	Pool              string         `json:"pool,omitempty"`
-	Host              string         `json:"host,omitempty"`
-	PolicyVersion     string         `json:"policyVersion,omitempty"`
-	Actor             *Actor         `json:"actor,omitempty"`
-	Error             *Error         `json:"error,omitempty"`
-	Data              map[string]any `json:"data,omitempty"`
-	Attrs             map[string]any `json:"attrs,omitempty"`
+	V                 int    `json:"v"`
+	Kind              Kind   `json:"kind"`
+	Type              string `json:"type,omitempty"`
+	ID                string `json:"id,omitempty"`
+	TS                string `json:"ts"`
+	Src               Source `json:"src"`
+	Level             Level  `json:"level,omitempty"`
+	Msg               string `json:"msg,omitempty"`
+	TraceID           string `json:"traceId,omitempty"`
+	OperationID       string `json:"operationId,omitempty"`
+	ParentOperationID string `json:"parentOperationId,omitempty"`
+	Workspace         string `json:"workspace,omitempty"`
+	Session           string `json:"session,omitempty"`
+	Pool              string `json:"pool,omitempty"`
+	Host              string `json:"host,omitempty"`
+
+	// PolicyVersion hashes the workspace rules as sha256: plus 64 lowercase hex digits.
+	PolicyVersion string `json:"policyVersion,omitempty"`
+	// ConfigVersion hashes the whole normalized pool file as sha256: plus 64 lowercase hex digits.
+	ConfigVersion string `json:"configVersion,omitempty"`
+
+	Actor *Actor         `json:"actor,omitempty"`
+	Error *Error         `json:"error,omitempty"`
+	Data  map[string]any `json:"data,omitempty"`
+	Attrs map[string]any `json:"attrs,omitempty"`
 }
 
 // Known reports whether k is a known kind.
