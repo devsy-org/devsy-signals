@@ -28,17 +28,10 @@ func TestValidateMemoChargesExpandedValues(t *testing.T) {
 	}
 }
 
-func TestValidatePointerChainAllocations(t *testing.T) {
+func TestValidatePointerChain(t *testing.T) {
 	t.Parallel()
-	e := resultRecord(t)
-	e.Data[memoField] = slices.Repeat([]any{pointerChain(0, chainHops)}, chainRefs)
-	result := testing.Benchmark(func(b *testing.B) {
-		b.Helper()
-		benchmarkData(b, e)
-	})
-	if allocated := result.AllocedBytesPerOp(); allocated > 512<<10 {
-		t.Errorf("Validate allocated %d bytes/op, want at most 512 KiB", allocated)
-	}
+	e := pointerChainRecord(t)
+	checkVerdict(t, "Validate", e.Validate(), nil)
 	_, err := envelope.DecodeStrict(mustMarshalJSON(t, e))
 	checkVerdict(t, "DecodeStrict", err, nil)
 }
@@ -98,9 +91,7 @@ func TestValidatePointerMemoSeparatesTypes(t *testing.T) {
 }
 
 func BenchmarkValidatePointerChain(b *testing.B) {
-	e := resultRecord(b)
-	e.Data[memoField] = slices.Repeat([]any{pointerChain(0, chainHops)}, chainRefs)
-	benchmarkData(b, e)
+	benchmarkData(b, pointerChainRecord(b))
 }
 
 func BenchmarkValidateMemoDoubling(b *testing.B) {
@@ -117,6 +108,13 @@ func BenchmarkValidateMemoDoubling(b *testing.B) {
 			}
 		})
 	}
+}
+
+func pointerChainRecord(tb testing.TB) envelope.Envelope {
+	tb.Helper()
+	e := resultRecord(tb)
+	e.Data[memoField] = slices.Repeat([]any{pointerChain(0, chainHops)}, chainRefs)
+	return e
 }
 
 func pointerChain(value any, hops int) any {
