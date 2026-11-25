@@ -2,6 +2,7 @@ package schematest_test
 
 import (
 	"encoding/json"
+	"fmt"
 	"maps"
 	"path/filepath"
 	"slices"
@@ -39,6 +40,34 @@ func TestAuditDataMutationFixtures(t *testing.T) {
 			}
 			require.NoError(t, json.Unmarshal([]byte(example), &e.Data))
 			checkAuditMutations(t, s, e)
+		})
+	}
+}
+
+func TestAuditPermissionCountBoundary(t *testing.T) {
+	t.Parallel()
+	s := compile(t)
+	raw, err := readFile(filepath.Join(root, "fixtures/envelope/valid/audit_egress_deny.json"))
+	require.NoError(t, err)
+	base, err := envelope.DecodeStrict(raw)
+	require.NoError(t, err)
+	base.Type = envelope.AuditCredentialIssue
+	base.Data = nil
+	require.NoError(t, json.Unmarshal([]byte(auditDataExamples()[base.Type]), &base.Data))
+
+	for _, count := range []int{64, 65} {
+		t.Run(fmt.Sprintf("%d permissions", count), func(t *testing.T) {
+			t.Parallel()
+			record := base
+			record.Data = maps.Clone(base.Data)
+			record.Data[attrkey.CredentialPermissions] = slices.Repeat(
+				[]string{"contents:read"},
+				count,
+			)
+			wire, err := json.Marshal(record)
+			require.NoError(t, err)
+			assert.Equal(t, count == 64, goVerdict(wire) == nil, "Go")
+			assert.Equal(t, count == 64, schemaVerdict(t, s, wire) == nil, "schema")
 		})
 	}
 }
