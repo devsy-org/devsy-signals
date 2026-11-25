@@ -27,8 +27,8 @@ var numberRE = regexp.MustCompile(`^(-?)(0|[1-9][0-9]*)(?:\.([0-9]+))?(?:[eE]([+
 
 // Decode reads one version 1 JSON record without calling Validate. It ignores
 // unknown fields, preserves unknown enum strings, and treats null and values
-// that do not fit a typed field as absent. Data and attrs preserve nested
-// nulls and keep numbers as json.Number.
+// that do not fit a typed field as absent. Data and attrs preserve nested nulls.
+// Data and attrs keep numbers as json.Number with their original text.
 func Decode(data []byte) (Envelope, error) {
 	return decode(data, false)
 }
@@ -36,6 +36,7 @@ func Decode(data []byte) (Envelope, error) {
 // DecodeStrict reads one version 1 JSON record without calling Validate. It
 // rejects unknown fields and enum strings, nulls in typed fields, incorrect
 // field types, and empty optional strings. Data and attrs preserve nested nulls.
+// Data and attrs keep numbers as json.Number with their original text.
 func DecodeStrict(data []byte) (Envelope, error) {
 	return decode(data, true)
 }
