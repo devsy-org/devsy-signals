@@ -11,8 +11,9 @@ import (
 )
 
 type recordParser struct {
-	data []byte
-	pos  int
+	data  []byte
+	pos   int
+	depth int
 }
 
 type nullValue struct{}
@@ -25,7 +26,8 @@ func jsonValue(value any) any {
 }
 
 // Use the standard decoder for scalars only: its structural depth limit can
-// reject records below the byte limit.
+// reject records below the byte limit. The parser enforces maxDepth itself, so
+// recursion never goes deeper than maxDepth frames.
 func parseRecord(data []byte) (map[string]any, error) {
 	p := recordParser{data: data}
 	if !p.take('{') {
@@ -42,7 +44,19 @@ func parseRecord(data []byte) (map[string]any, error) {
 	return root, nil
 }
 
+func (p *recordParser) enter() error {
+	if p.depth >= maxDepth {
+		return fmt.Errorf("%w: limit is %d levels", ErrDepth, maxDepth)
+	}
+	p.depth++
+	return nil
+}
+
 func (p *recordParser) object() (map[string]any, error) {
+	if err := p.enter(); err != nil {
+		return nil, err
+	}
+	defer func() { p.depth-- }()
 	values := map[string]any{}
 	if p.take('}') {
 		return values, nil
@@ -81,6 +95,10 @@ func (p *recordParser) member(values map[string]any) (string, any, error) {
 }
 
 func (p *recordParser) array() ([]any, error) {
+	if err := p.enter(); err != nil {
+		return nil, err
+	}
+	defer func() { p.depth-- }()
 	values := []any{}
 	if p.take(']') {
 		return values, nil

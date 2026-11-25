@@ -1,6 +1,7 @@
 // Package envelope defines the Devsy record envelope, level mapping and ULID
 // minting. Readers use tolerant Decode; writers use DecodeStrict to self-check.
-// Audit ingest uses DecodeStrict plus the audit data allow-list and fails closed.
+// DecodeStrict checks syntax and shape only. Ingest must call DecodeStrict and
+// then Validate, and fails closed only when both pass.
 package envelope
 
 import (
@@ -11,7 +12,13 @@ import (
 	"strings"
 )
 
-const maxRecordBytes = 64 << 10
+const (
+	maxRecordBytes = 64 << 10
+	// maxDepth is the deepest nesting of objects and arrays a record may
+	// have. The top-level object is level 1, so a record of exactly maxDepth
+	// levels is accepted and one more is rejected.
+	maxDepth = 64
+)
 
 // Decode error categories.
 var (
@@ -20,23 +27,30 @@ var (
 	ErrTooLarge  = errors.New("record too large")
 	ErrText      = errors.New("invalid record text")
 	ErrStrict    = errors.New("strict decode rejected record")
+	ErrDepth     = errors.New("record nested too deeply")
 )
 
 // numberRE is the JSON number grammar. Groups: sign, integer, fraction, exponent sign, exponent.
 var numberRE = regexp.MustCompile(`^(-?)(0|[1-9][0-9]*)(?:\.([0-9]+))?(?:[eE]([+-]?)([0-9]+))?$`)
 
-// Decode reads one version 1 JSON record without calling Validate. It ignores
-// unknown fields, preserves unknown enum strings, and treats null and values
-// that do not fit a typed field as absent. Data and attrs preserve nested nulls.
+// Decode reads one version 1 JSON record. It does not call Validate and checks
+// no required fields. It ignores unknown fields, preserves unknown enum
+// strings, and treats null and values that do not fit a typed field as absent.
+// Data and attrs preserve nested nulls.
 // Data and attrs keep numbers as json.Number with their original text.
+// Nesting deeper than 64 levels anywhere in the record returns ErrDepth.
 func Decode(data []byte) (Envelope, error) {
 	return decode(data, false)
 }
 
-// DecodeStrict reads one version 1 JSON record without calling Validate. It
-// rejects unknown fields and enum strings, nulls in typed fields, incorrect
-// field types, and empty optional strings. Data and attrs preserve nested nulls.
+// DecodeStrict reads one version 1 JSON record. It checks syntax and shape
+// only: it rejects unknown fields and enum strings, nulls in typed fields,
+// incorrect field types, and empty optional strings. It does not call Validate
+// and checks no required fields, except that an error object must carry
+// retryable. A record that passes it can still be invalid, so call Validate on
+// its result before trusting it. Data and attrs preserve nested nulls.
 // Data and attrs keep numbers as json.Number with their original text.
+// Nesting deeper than 64 levels anywhere in the record returns ErrDepth.
 func DecodeStrict(data []byte) (Envelope, error) {
 	return decode(data, true)
 }
@@ -54,6 +68,9 @@ func decode(data []byte, strict bool) (Envelope, error) {
 		return Envelope{}, err
 	}
 	root, err := parseRecord(data)
+	if errors.Is(err, ErrDepth) {
+		return Envelope{}, err
+	}
 	if err != nil {
 		return Envelope{}, fmt.Errorf("%w: %w", ErrNotRecord, err)
 	}
