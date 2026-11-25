@@ -120,6 +120,10 @@ func (k ActorKind) Known() bool {
 
 // MarshalJSON keeps a non-nil empty data or attrs map on the wire, because
 // data is required on some kinds and an empty object satisfies that.
+// It emits literal <, >, and & with no trailing newline. Use this method
+// directly or a [json.Encoder] with SetEscapeHTML(false) for literal output.
+// Plain [json.Marshal] escapes these characters. Both forms decode to the
+// same record.
 func (e Envelope) MarshalJSON() ([]byte, error) {
 	type plain Envelope
 	w := struct {

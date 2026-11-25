@@ -7,3 +7,5 @@
 The Go decoder limits a raw record to 64 KiB before parsing. JSON Schema sees the parsed value, so it cannot measure the serialized byte count or reject malformed UTF-8 in the input bytes. The Go validator measures audit data strings and attribute strings in UTF-8 bytes. Schema length limits count Unicode code points, so multibyte strings may fit the schema and exceed the Go limit. The Go validator also checks calendar dates where the schema checks only timestamp syntax.
 
 The schema rejects NUL in decoded string values and object keys at every allowed depth, matching the Go decoder. NUL fixtures belong in the shared invalid corpus.
+
+Writers that need literal `<`, `>`, and `&` can call `Envelope.MarshalJSON` directly or use a `json.Encoder` with `SetEscapeHTML(false)`. Plain `json.Marshal` escapes those characters. Both are valid JSON and decode to the same record.
