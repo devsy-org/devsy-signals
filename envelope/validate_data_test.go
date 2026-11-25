@@ -112,16 +112,17 @@ func (marshalerList) MarshalJSON() ([]byte, error) { return []byte(`["text\u0000
 
 func TestValidateRejectsWireMarshalers(t *testing.T) {
 	t.Parallel()
+	const safe = "safe"
 	for _, tc := range []struct {
 		name  string
 		value any
 		want  error
 	}{
-		{"text marshaler", textMarshalerString("safe"), envelope.ErrText},
-		{"pointer JSON marshaler in slice", []jsonMarshalerString{"safe"}, envelope.ErrText},
-		{"slice with custom marshaler", marshalerList{"safe"}, envelope.ErrText},
-		{"plain named string", plainWireString("safe"), nil},
-		{"plain named string in array", [1]plainWireString{"safe"}, nil},
+		{"text marshaler", textMarshalerString(safe), envelope.ErrText},
+		{"pointer JSON marshaler in slice", []jsonMarshalerString{safe}, envelope.ErrText},
+		{"slice with custom marshaler", marshalerList{safe}, envelope.ErrText},
+		{"plain named string", plainWireString(safe), nil},
+		{"plain named string in array", [1]plainWireString{safe}, nil},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
