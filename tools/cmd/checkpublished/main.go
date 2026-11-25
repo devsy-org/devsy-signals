@@ -2,20 +2,30 @@
 package main
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"os"
 	"os/exec"
+	"path/filepath"
+	"slices"
 	"strings"
 
 	"github.com/devsy-org/devsy-signals/tools/internal/registry"
 )
 
 const (
-	inventoryPath = "schema/errors.published.yaml"
-	registryPath  = "schema/errors.yaml"
+	schemaDir     = "schema"
+	inventoryPath = schemaDir + "/errors.published.yaml"
+	registryPath  = schemaDir + "/errors.yaml"
+
+	modeTree       = "040000"
+	modeFile       = "100644"
+	modeExecutable = "100755"
+	modeSymlink    = "120000"
 )
 
 func main() {
@@ -47,26 +57,65 @@ func run(ctx context.Context, root, base string) error {
 }
 
 func baselinePath(ctx context.Context, root, base string) (string, error) {
-	paths, err := git(
-		ctx,
-		root,
-		"ls-tree",
-		"--full-tree",
-		"--name-only",
-		base,
-		"--",
-		inventoryPath,
-		registryPath,
-	)
+	dir, err := treeModes(ctx, root, base, schemaDir)
+	if err != nil || len(dir) == 0 {
+		return "", err
+	}
+	if err := checkMode(schemaDir, dir[schemaDir], modeTree); err != nil {
+		return "", err
+	}
+	files, err := treeModes(ctx, root, base, inventoryPath, registryPath)
 	if err != nil {
 		return "", err
 	}
+	return firstBaselineFile(files)
+}
+
+// firstBaselineFile validates every schema file at base, not only the one
+// used, so a link cannot hide behind a valid sibling.
+func firstBaselineFile(files map[string]string) (string, error) {
+	found := ""
 	for _, path := range []string{inventoryPath, registryPath} {
-		if strings.Contains("\n"+paths, "\n"+path+"\n") {
-			return path, nil
+		mode, ok := files[path]
+		if !ok {
+			continue
+		}
+		if err := checkMode(path, mode, modeFile, modeExecutable); err != nil {
+			return "", err
+		}
+		found = cmp.Or(found, path)
+	}
+	return found, nil
+}
+
+// treeModes maps each listed path that exists at base to its Git mode. Git
+// lists a path itself and never follows a symlink, so a link is reported
+// instead of being traversed.
+func treeModes(ctx context.Context, root, base string, paths ...string) (map[string]string, error) {
+	args := append([]string{"ls-tree", "--full-tree", base, "--"}, paths...)
+	out, err := git(ctx, root, args...)
+	if err != nil {
+		return nil, err
+	}
+	modes := map[string]string{}
+	for line := range strings.SplitSeq(strings.TrimSpace(out), "\n") {
+		meta, path, ok := strings.Cut(line, "\t")
+		if fields := strings.Fields(meta); ok && len(fields) > 0 {
+			modes[path] = fields[0]
 		}
 	}
-	return "", nil
+	return modes, nil
+}
+
+func checkMode(path, mode string, allowed ...string) error {
+	switch {
+	case slices.Contains(allowed, mode):
+		return nil
+	case mode == modeSymlink:
+		return fmt.Errorf("base %s is a symlink; it must not be one", path)
+	default:
+		return fmt.Errorf("base %s has unsupported Git mode %s", path, mode)
+	}
 }
 
 func loadBaseline(path, data string) (registry.Inventory, error) {
@@ -81,6 +130,9 @@ func loadBaseline(path, data string) (registry.Inventory, error) {
 }
 
 func checkCurrent(root string, base registry.Inventory) error {
+	if err := rejectSymlinks(root, schemaDir, inventoryPath, registryPath); err != nil {
+		return err
+	}
 	file, err := os.OpenInRoot(root, inventoryPath)
 	if err != nil {
 		return fmt.Errorf("read inventory: %w", err)
@@ -90,6 +142,22 @@ func checkCurrent(root string, base registry.Inventory) error {
 		return fmt.Errorf("current inventory: %w", err)
 	}
 	return registry.CheckAppendOnly(base, current)
+}
+
+func rejectSymlinks(root string, paths ...string) error {
+	for _, path := range paths {
+		info, err := os.Lstat(filepath.Join(root, path))
+		if errors.Is(err, fs.ErrNotExist) {
+			continue
+		}
+		if err != nil {
+			return fmt.Errorf("inspect %s: %w", path, err)
+		}
+		if info.Mode()&fs.ModeSymlink != 0 {
+			return fmt.Errorf("%s is a symlink; it must not be one", path)
+		}
+	}
+	return nil
 }
 
 func git(ctx context.Context, root string, args ...string) (string, error) {
