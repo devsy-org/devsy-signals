@@ -83,11 +83,17 @@ type strictBool bool
 
 func (b *strictBool) UnmarshalYAML(n *yaml.Node) error {
 	var v bool
-	if n.Kind != yaml.ScalarNode || n.Tag != "!!bool" || n.Decode(&v) != nil {
+	if decorated(n) || n.Kind != yaml.ScalarNode || n.Tag != "!!bool" || n.Decode(&v) != nil {
 		return fmt.Errorf("line %d: retryable must be true or false", n.Line)
 	}
 	*b = strictBool(v)
 	return nil
+}
+
+// decorated reports an explicit tag or an anchor. yaml.v3 hands a decoder the
+// anchored node for an alias, so an alias to a value shows the anchor too.
+func decorated(n *yaml.Node) bool {
+	return n.Anchor != "" || n.Style&yaml.TaggedStyle != 0
 }
 
 // strictInt accepts only an unquoted scalar that yaml.v3 tags !!int. That
@@ -97,17 +103,27 @@ func (b *strictBool) UnmarshalYAML(n *yaml.Node) error {
 // underscores before it decodes and reads a leading zero as octal, where YAML
 // 1.2 reads decimal, and exits never need a sign or a radix, so underscores,
 // leading zeros, signs and 0x, 0o and 0b prefixes are all refused (1_0, 017,
-// +5, 0x7D). Zero passes here and fails the range check.
-type strictInt int
+// +5, 0x7D). Zero passes here and fails the range check. Explicit tags,
+// anchors and aliases are refused too; plain is set so the caller can name
+// the class or code, which the node does not know.
+type strictInt struct {
+	value int
+	plain bool
+}
 
 func (i *strictInt) UnmarshalYAML(n *yaml.Node) error {
+	if decorated(n) {
+		return nil
+	}
 	var v int
 	if !plainInt(n) || n.Decode(&v) != nil {
 		return fmt.Errorf("line %d: exit must be an integer", n.Line)
 	}
-	*i = strictInt(v)
+	*i = strictInt{value: v, plain: true}
 	return nil
 }
+
+const errPlainExit = "exit must be a plain integer without a tag, anchor or alias"
 
 func plainInt(n *yaml.Node) bool {
 	const quoted = yaml.DoubleQuotedStyle | yaml.SingleQuotedStyle | yaml.LiteralStyle | yaml.FoldedStyle
@@ -122,10 +138,13 @@ func plainInt(n *yaml.Node) bool {
 func exitValues(raw map[string]*strictInt) (map[string]int, error) {
 	exits := make(map[string]int, len(raw))
 	for _, class := range slices.Sorted(maps.Keys(raw)) {
-		if raw[class] == nil {
+		switch {
+		case raw[class] == nil:
 			return nil, fmt.Errorf("class %q must set exit to an integer", class)
+		case !raw[class].plain:
+			return nil, fmt.Errorf("class %q: %s", class, errPlainExit)
 		}
-		exits[class] = int(*raw[class])
+		exits[class] = raw[class].value
 	}
 	return exits, nil
 }
@@ -167,12 +186,14 @@ func (e rawEntry) entry() (Entry, error) {
 		return Entry{}, fmt.Errorf("code %q must set retryable to true or false", e.Code)
 	case e.Exit == nil:
 		return Entry{}, fmt.Errorf("code %q must set exit to an integer", e.Code)
+	case !e.Exit.plain:
+		return Entry{}, fmt.Errorf("code %q: %s", e.Code, errPlainExit)
 	}
 	return Entry{
 		Code:      e.Code,
 		Class:     e.Class,
 		Retryable: bool(*e.Retryable),
-		Exit:      int(*e.Exit),
+		Exit:      e.Exit.value,
 		Summary:   e.Summary,
 	}, nil
 }
