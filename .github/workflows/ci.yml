@@ -36,10 +36,13 @@ jobs:
       - name: Test tools module
         run: cd tools && go test -race ./...
       - name: Check published error codes are append-only
-        if: github.event_name == 'pull_request'
         env:
-          BASE_SHA: ${{ github.event.pull_request.base.sha }}
-        run: cd tools && go run ./cmd/checkpublished -base "$BASE_SHA"
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          case "$BASE_SHA" in
+            ''|0000000000000000000000000000000000000000) echo "no previous commit to compare with"; exit 0 ;;
+          esac
+          cd tools && go run ./cmd/checkpublished -base "$BASE_SHA"
       - name: Check generated files are current
         run: |
           cd tools && go run ./cmd/gencodes

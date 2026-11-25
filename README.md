@@ -21,7 +21,7 @@ Shared observability contract for Devsy: the record envelope, error codes, redac
 cd tools && go run ./cmd/gencodes
 ```
 
-CI fails when the generated files differ from a fresh run. The `tools` directory is a separate Go module, so the root module keeps no dependencies. The generator needs Go 1.24 or newer.
+CI fails when the generated files differ from a fresh run. CI also runs `go run ./cmd/checkpublished -base <sha>` in `tools`, which keeps `schema/errors.published.yaml` append-only. On a pull request the base is the PR base commit; on a push to `main` it is the previous `main` commit (`github.event.before`), and the check is skipped when that is the all-zero sha. The `tools` directory is a separate Go module, so the root module keeps no dependencies. The generator needs Go 1.24 or newer.
 
 ## Versioning
 
