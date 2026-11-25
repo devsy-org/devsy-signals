@@ -21,6 +21,8 @@ jobs:
       GOTOOLCHAIN: local
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
           go-version: 1.23.x
@@ -31,11 +33,26 @@ jobs:
           go-version: 1.26.x
       - name: Test current Go
         run: go test -race ./...
+      - name: Test tools module
+        run: cd tools && go test -race ./...
+      - name: Check published error codes are append-only
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: cd tools && go run ./cmd/checkpublished -base "$BASE_SHA"
+      - name: Check generated files are current
+        run: |
+          cd tools && go run ./cmd/gencodes
+          test -z "$(git status --porcelain)" || { git status --porcelain; git diff; exit 1; }
       - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
         with:
           version: v2.14.0
+      - uses: golangci/golangci-lint-action@ba0d7d2ec06a0ea1cb5fa41b2e4a3ab91d21278a
+        with:
+          version: v2.14.0
+          working-directory: tools
       - name: Check Go formatting
-        run: golangci-lint fmt --diff
+        run: golangci-lint fmt --diff && (cd tools && golangci-lint fmt --diff)
 
   # Left out of ci-success needs until it has run for a week without false positives.
   mask-scan:

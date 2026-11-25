@@ -1,0 +1,204 @@
+# Registry of error codes. Go constants and TypeScript types are generated from
+# this file: run `cd tools && go run ./cmd/gencodes` after editing it.
+# Codes are never renamed or reused. Each exit value must match its class.
+classes:
+  internal: 1
+  usage: 2
+  config: 2
+  environment: 3
+  transient: 75
+  recoverable_build: 79
+  timeout: 124
+  canceled: 130
+
+codes:
+  - code: unknown
+    class: internal
+    retryable: false
+    exit: 1
+    summary: An error with no registered code.
+  - code: internal.panic
+    class: internal
+    retryable: false
+    exit: 1
+    summary: A panic was recovered.
+  - code: canceled
+    class: canceled
+    retryable: false
+    exit: 130
+    summary: The operation was canceled by the user or a parent context.
+  - code: timeout
+    class: timeout
+    retryable: false
+    exit: 124
+    summary: The operation exceeded its deadline.
+  - code: input.required
+    class: usage
+    retryable: false
+    exit: 2
+    summary: A required input was missing and no prompt was possible.
+  - code: config.invalid
+    class: config
+    retryable: false
+    exit: 2
+    summary: A configuration value is invalid.
+  - code: api.rate_limited
+    class: transient
+    retryable: true
+    exit: 75
+    summary: A remote API rejected the request because of rate limits.
+  - code: build.failed_recoverable
+    class: recoverable_build
+    retryable: true
+    exit: 79
+    summary: A build failed in a way a rerun with a fallback can fix.
+  - code: docker.daemon_unreachable
+    class: environment
+    retryable: false
+    exit: 3
+    summary: The Docker daemon could not be reached.
+  - code: secret.unlock_required
+    class: environment
+    retryable: false
+    exit: 3
+    summary: The secret store is locked and needs to be unlocked.
+  - code: secret.unlock_failed
+    class: environment
+    retryable: false
+    exit: 3
+    summary: Unlocking the secret store failed.
+  - code: secret.backend_unavailable
+    class: environment
+    retryable: false
+    exit: 3
+    summary: No secret backend is available on this host.
+  - code: secret.store_corrupt
+    class: environment
+    retryable: false
+    exit: 3
+    summary: The secret store data is unreadable.
+  - code: secret.not_found
+    class: config
+    retryable: false
+    exit: 2
+    summary: A referenced secret does not exist.
+  - code: ssh.auth_failed
+    class: environment
+    retryable: false
+    exit: 3
+    summary: SSH authentication was rejected.
+  - code: ssh.host_key_failed
+    class: environment
+    retryable: false
+    exit: 3
+    summary: The SSH host key did not match or could not be verified.
+  - code: ssh.unreachable
+    class: environment
+    retryable: false
+    exit: 3
+    summary: The SSH host could not be reached.
+  - code: ssh.handshake_timeout
+    class: transient
+    retryable: true
+    exit: 75
+    summary: The SSH handshake timed out.
+  - code: ssh.command_failed
+    class: environment
+    retryable: false
+    exit: 3
+    summary: A command run over SSH exited with an error.
+  - code: provider.auth_failed
+    class: environment
+    retryable: false
+    exit: 3
+    summary: The provider rejected the credentials.
+  - code: provider.auth_expired
+    class: environment
+    retryable: false
+    exit: 3
+    summary: The provider credentials expired and need to be renewed.
+  - code: provider.quota_exceeded
+    class: environment
+    retryable: false
+    exit: 3
+    summary: The provider account is over a quota or limit.
+  - code: provider.invalid_config
+    class: config
+    retryable: false
+    exit: 2
+    summary: The provider options are invalid.
+  - code: provider.not_found
+    class: environment
+    retryable: false
+    exit: 3
+    summary: The provider resource does not exist.
+  - code: provider.unavailable
+    class: transient
+    retryable: true
+    exit: 75
+    summary: The provider service is temporarily unavailable.
+  - code: provider.unreachable
+    class: environment
+    retryable: false
+    exit: 3
+    summary: The provider endpoint could not be reached.
+  - code: runtime.unknown
+    class: internal
+    retryable: false
+    exit: 1
+    summary: The runtime reported an unknown error.
+  - code: runtime.not_found
+    class: environment
+    retryable: false
+    exit: 3
+    summary: The runtime could not find the requested resource.
+  - code: runtime.already_exists
+    class: environment
+    retryable: false
+    exit: 3
+    summary: The runtime resource already exists.
+  - code: runtime.invalid_argument
+    class: usage
+    retryable: false
+    exit: 2
+    summary: The runtime rejected an argument.
+  - code: runtime.unsupported
+    class: environment
+    retryable: false
+    exit: 3
+    summary: The runtime does not support the requested operation.
+  - code: runtime.unavailable
+    class: transient
+    retryable: true
+    exit: 75
+    summary: The runtime is temporarily unavailable.
+  - code: runtime.failed_precondition
+    class: environment
+    retryable: false
+    exit: 3
+    summary: The runtime state does not allow the operation.
+  - code: runtime.permission_denied
+    class: environment
+    retryable: false
+    exit: 3
+    summary: The runtime denied permission for the operation.
+  - code: runtime.timeout
+    class: timeout
+    retryable: false
+    exit: 124
+    summary: The runtime operation exceeded its deadline.
+  - code: runtime.canceled
+    class: canceled
+    retryable: false
+    exit: 130
+    summary: The runtime operation was canceled.
+  - code: runtime.failure
+    class: internal
+    retryable: false
+    exit: 1
+    summary: The runtime operation failed for an internal reason.
+  - code: runtime.incompatible_version
+    class: environment
+    retryable: false
+    exit: 3
+    summary: The runtime version is not compatible with this client.
