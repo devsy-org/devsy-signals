@@ -6,6 +6,8 @@
 
 The Go decoder limits a raw record to 64 KiB before parsing. JSON Schema sees the parsed value, so it cannot measure the serialized byte count or reject malformed UTF-8 in the input bytes. The Go validator measures audit data strings and attribute strings in UTF-8 bytes. Schema length limits count Unicode code points, so multibyte strings may fit the schema and exceed the Go limit. The Go validator also checks calendar dates where the schema checks only timestamp syntax.
 
+A JSON string may hold an unpaired surrogate escape such as `\ud800`, which no UTF-8 text can represent. The Go decoder rejects the record as invalid record text (`unpaired surrogate`); it does not replace the escape with U+FFFD. The schema validator in `tools/schematest` accepts the same document, so this is a Go-only verdict, pinned by `fixtures/envelope/go_only/log_lone_surrogate_escape.json`. A valid pair such as `\ud83d\ude00` is accepted by both. An ingestor that is not written in Go must reject a record with an unpaired surrogate escape, and must not replace it, so every reader sees the same record or none.
+
 The schema rejects NUL in decoded string values and object keys at every allowed depth, matching the Go decoder. NUL fixtures belong in the shared invalid corpus.
 
 Writers that need literal `<`, `>`, and `&` can call `Envelope.MarshalJSON` directly or use a `json.Encoder` with `SetEscapeHTML(false)`. Plain `json.Marshal` escapes those characters. Both forms represent the same record, but the 64 KiB decoder limit applies to the emitted bytes. Use the literal form for records near the limit.

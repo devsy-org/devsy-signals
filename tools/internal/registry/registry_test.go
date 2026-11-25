@@ -140,8 +140,7 @@ func TestParseRejectsInvalidClassNames(t *testing.T) {
 
 func TestParseRejectsControlAndBidiSummary(t *testing.T) {
 	t.Parallel()
-	const want = "summary must not contain control characters, bidirectional formatting characters, " +
-		"U+180E or a byte order mark (U+FEFF)"
+	const want = "summary must be plain text"
 	for name, escapes := range map[string][]string{
 		"C0":        {"\\u0000", "\\u0001", "\\u0009", "\\u001b", "\\u001f"},
 		"DEL":       {"\\u007f"},

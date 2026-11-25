@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
-	"unicode"
+	"unicode/utf8"
 
 	"gopkg.in/yaml.v3"
 )
@@ -41,9 +41,13 @@ type File struct {
 
 // Load reads and validates the registry at path.
 func Load(path string) (File, error) {
-	data, err := os.ReadFile(path) //nolint:gosec // path comes from the tool flags
+	file, err := os.Open(path) //nolint:gosec // path comes from the tool flags
 	if err != nil {
 		return File{}, fmt.Errorf("read registry: %w", err)
+	}
+	data, err := ReadLimited(file, path)
+	if err := errors.Join(err, file.Close()); err != nil {
+		return File{}, err
 	}
 	return Parse(data)
 }
@@ -65,8 +69,60 @@ func Parse(data []byte) (File, error) {
 	return f, nil
 }
 
+const (
+	errInteger   = "exit must be an integer"
+	errRetryable = "retryable must be true or false"
+	errPlainExit = "exit must be a plain integer without a tag, anchor or alias"
+
+	// MaxFileBytes bounds the registry and inventory files, which hold a few
+	// KB, so the checks on them cost a bounded amount of work.
+	MaxFileBytes = 1 << 20
+
+	byteOrderMark = "\xef\xbb\xbf"
+)
+
+// ReadLimited reads src to its end and fails once more than MaxFileBytes are
+// present. It reads at most one byte past the limit, so an oversized file or
+// stream costs about the limit in memory. name appears in the error.
+func ReadLimited(src io.Reader, name string) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(src, MaxFileBytes+1))
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", name, err)
+	}
+	if len(data) > MaxFileBytes {
+		return nil, fmt.Errorf("%s is too large: the limit is %d bytes", name, MaxFileBytes)
+	}
+	return data, nil
+}
+
+// readSource reads a registry file and accepts only UTF-8 without NUL bytes
+// or byte order marks. yaml.v3 also reads BOM-marked UTF-16 and silently skips
+// further U+FEFF at the start, which would hide bytes from the position-based
+// checks below, so every U+FEFF is refused, including a single leading one.
+func readSource(src io.Reader, name string) ([]byte, error) {
+	data, err := ReadLimited(src, name)
+	if err != nil {
+		return nil, err
+	}
+	if !utf8.Valid(data) || bytes.IndexByte(data, 0) >= 0 {
+		return nil, fmt.Errorf(
+			"%s must be valid UTF-8 without NUL bytes; UTF-16 and UTF-32 are not supported", name)
+	}
+	if bytes.Contains(data, []byte(byteOrderMark)) {
+		return nil, fmt.Errorf("%s must not contain a byte order mark (U+FEFF)", name)
+	}
+	return data, nil
+}
+
 func decodeYAML(src io.Reader, name string, dst any) error {
-	dec := yaml.NewDecoder(src)
+	data, err := readSource(src, name)
+	if err != nil {
+		return err
+	}
+	if err := checkStructure(data); err != nil {
+		return fmt.Errorf("%s: %w", name, err)
+	}
+	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
 	if err := dec.Decode(dst); err != nil {
 		return fmt.Errorf("decode %s: %w", name, err)
@@ -79,34 +135,45 @@ func decodeYAML(src io.Reader, name string, dst any) error {
 }
 
 // strictBool accepts only the YAML true and false literals. yaml.v3 otherwise
-// reads the YAML 1.1 words on, off, yes and no into a bool.
-type strictBool bool
+// reads the YAML 1.1 words on, off, yes and no into a bool. A refused value
+// leaves ok false and keeps its line, so the caller can name the code.
+type strictBool struct {
+	value bool
+	ok    bool
+	line  int
+}
 
 func (b *strictBool) UnmarshalYAML(n *yaml.Node) error {
 	var v bool
+	*b = strictBool{line: n.Line}
 	if n.Kind != yaml.ScalarNode || n.Tag != "!!bool" || n.Decode(&v) != nil {
-		return fmt.Errorf("line %d: retryable must be true or false", n.Line)
+		return nil
 	}
-	*b = strictBool(v)
+	b.value, b.ok = v, true
 	return nil
 }
 
 // strictInt accepts only an unquoted scalar that yaml.v3 tags !!int. That
-// excludes floats such as 125.9, booleans, null, quoted strings and a quoted
-// value forced with an explicit tag (!!int "125"). The spelling must also
-// match exitRE, one canonical form: plain unsigned decimal. yaml.v3 strips
-// underscores before it decodes and reads a leading zero as octal, where YAML
-// 1.2 reads decimal, and exits never need a sign or a radix, so underscores,
-// leading zeros, signs and 0x, 0o and 0b prefixes are all refused (1_0, 017,
-// +5, 0x7D). Zero passes here and fails the range check.
-type strictInt int
+// excludes floats such as 125.9, booleans, null and quoted strings. The
+// spelling must also match exitRE, one canonical form: plain unsigned decimal.
+// yaml.v3 strips underscores before it decodes and reads a leading zero as
+// octal, where YAML 1.2 reads decimal, and exits never need a sign or a radix,
+// so underscores, leading zeros, signs and 0x, 0o and 0b prefixes are all
+// refused (1_0, 017, +5, 0x7D). Zero passes here and fails the range check. A
+// refused value leaves ok false and keeps its line, so the caller can name the
+// class or code.
+type strictInt struct {
+	value int
+	ok    bool
+	line  int
+}
 
 func (i *strictInt) UnmarshalYAML(n *yaml.Node) error {
 	var v int
-	if !plainInt(n) || n.Decode(&v) != nil {
-		return fmt.Errorf("line %d: exit must be an integer", n.Line)
+	*i = strictInt{line: n.Line}
+	if plainInt(n) && n.Decode(&v) == nil {
+		i.value, i.ok = v, true
 	}
-	*i = strictInt(v)
 	return nil
 }
 
@@ -123,10 +190,13 @@ func plainInt(n *yaml.Node) bool {
 func exitValues(raw map[string]*strictInt) (map[string]int, error) {
 	exits := make(map[string]int, len(raw))
 	for _, class := range slices.Sorted(maps.Keys(raw)) {
-		if raw[class] == nil {
+		switch {
+		case raw[class] == nil:
 			return nil, fmt.Errorf("class %q must set exit to an integer", class)
+		case !raw[class].ok:
+			return nil, fmt.Errorf("class %q: line %d: %s", class, raw[class].line, errInteger)
 		}
-		exits[class] = int(*raw[class])
+		exits[class] = raw[class].value
 	}
 	return exits, nil
 }
@@ -168,12 +238,16 @@ func (e rawEntry) entry() (Entry, error) {
 		return Entry{}, fmt.Errorf("code %q must set retryable to true or false", e.Code)
 	case e.Exit == nil:
 		return Entry{}, fmt.Errorf("code %q must set exit to an integer", e.Code)
+	case !e.Exit.ok:
+		return Entry{}, fmt.Errorf("code %q: line %d: %s", e.Code, e.Exit.line, errInteger)
+	case !e.Retryable.ok:
+		return Entry{}, fmt.Errorf("code %q: line %d: %s", e.Code, e.Retryable.line, errRetryable)
 	}
 	return Entry{
 		Code:      e.Code,
 		Class:     e.Class,
-		Retryable: bool(*e.Retryable),
-		Exit:      int(*e.Exit),
+		Retryable: e.Retryable.value,
+		Exit:      e.Exit.value,
 		Summary:   e.Summary,
 	}, nil
 }
@@ -287,33 +361,6 @@ func (f File) checkEntry(e Entry, seen, reserved map[string]bool) error {
 		return fmt.Errorf("code %q generates the reserved Go name %s", e.Code, ConstName(e.Code))
 	}
 	return checkSummary(e.Code, e.Summary)
-}
-
-const lineBreaks = "\r\n\v\f\u0085\u2028\u2029"
-
-func checkSummary(code, summary string) error {
-	if strings.TrimSpace(summary) == "" {
-		return fmt.Errorf("code %q summary must not be blank", code)
-	}
-	if strings.ContainsAny(summary, lineBreaks) {
-		return fmt.Errorf("code %q summary must be a single line", code)
-	}
-	if strings.IndexFunc(summary, unsafeRune) >= 0 {
-		return fmt.Errorf(
-			"code %q summary must not contain control characters, bidirectional formatting "+
-				"characters, U+180E or a byte order mark (U+FEFF)", code)
-	}
-	return nil
-}
-
-// unsafeRune reports control characters, the Bidi_Control set (the Arabic
-// letter mark, marks, embeddings, overrides and isolates) and U+180E, which
-// Unicode now classes as a format character. U+FEFF is refused because the Go
-// compiler rejects it inside the generated source. Other format characters
-// such as U+00AD, U+200B to U+200D and U+2060 to U+2064 stay accepted.
-func unsafeRune(r rune) bool {
-	return unicode.IsControl(r) || unicode.Is(unicode.Bidi_Control, r) ||
-		r == '\u180e' || r == '\ufeff'
 }
 
 func validCode(code string) bool {
