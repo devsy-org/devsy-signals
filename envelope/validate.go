@@ -45,6 +45,8 @@ func (p *problems) add(ok bool, format string, args ...any) {
 // Validate applies the envelope schema and audit data rules and joins every
 // violation. Strings are measured in bytes where the design sets a byte limit.
 // Use maps for nested data objects. Data and attrs reject custom marshalers.
+// Exhausting the data traversal budget returns [ErrTooLarge]: the expanded
+// data tree cannot fit within the 64 KiB record limit.
 func (e Envelope) Validate() error {
 	return errors.Join(
 		e.checkHeader(),

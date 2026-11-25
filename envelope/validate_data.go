@@ -11,14 +11,18 @@ func (e Envelope) checkData() error {
 	if e.Kind == KindAudit || e.Data == nil {
 		return nil
 	}
-	seen := make(dataChecks)
-	if err := seen.valueErr(reflect.ValueOf(e.Data), 2); err != nil {
+	// Every visited value uses at least one byte in the expanded wire record.
+	checks := dataChecks{seen: make(map[dataVisit]struct{}), remaining: maxRecordBytes}
+	if err := checks.valueErr(reflect.ValueOf(e.Data), 2); err != nil {
 		return fmt.Errorf("data: %w", err)
 	}
 	return nil
 }
 
-type dataChecks map[dataVisit]struct{}
+type dataChecks struct {
+	seen      map[dataVisit]struct{}
+	remaining int
+}
 
 type dataVisit struct {
 	ptr   uintptr
@@ -27,7 +31,15 @@ type dataVisit struct {
 	depth int
 }
 
-func (seen dataChecks) valueErr(v reflect.Value, depth int) error {
+func (c *dataChecks) valueErr(v reflect.Value, depth int) error {
+	if c.remaining == 0 {
+		return fmt.Errorf(
+			"%w: expanded data exceeds the %d-value traversal limit",
+			ErrTooLarge,
+			maxRecordBytes,
+		)
+	}
+	c.remaining--
 	v, err := indirectDataValue(v)
 	if err != nil {
 		return err
@@ -39,14 +51,14 @@ func (seen dataChecks) valueErr(v reflect.Value, depth int) error {
 		return fmt.Errorf("%w: limit is %d", ErrDepth, maxDepth)
 	}
 	visit := newDataVisit(v, depth)
-	if _, ok := seen[visit]; ok {
+	if _, ok := c.seen[visit]; ok {
 		return nil
 	}
-	if err := seen.containerErr(v, depth); err != nil {
+	if err := c.containerErr(v, depth); err != nil {
 		return err
 	}
 	if visit.ptr != 0 {
-		seen[visit] = struct{}{}
+		c.seen[visit] = struct{}{}
 	}
 	return nil
 }
@@ -62,11 +74,11 @@ func newDataVisit(v reflect.Value, depth int) dataVisit {
 	return dataVisit{}
 }
 
-func (seen dataChecks) containerErr(v reflect.Value, depth int) error {
+func (c *dataChecks) containerErr(v reflect.Value, depth int) error {
 	if v.Kind() == reflect.Map {
-		return seen.mapErr(v, depth)
+		return c.mapErr(v, depth)
 	}
-	return seen.elementsErr(v, depth)
+	return c.elementsErr(v, depth)
 }
 
 func dataLeafErr(v reflect.Value) error {
@@ -139,7 +151,7 @@ func byteSlice(t reflect.Type) bool {
 	return elem.Kind() == reflect.Uint8 && !wireMarshalerType(reflect.PointerTo(elem))
 }
 
-func (seen dataChecks) mapErr(v reflect.Value, depth int) error {
+func (c *dataChecks) mapErr(v reflect.Value, depth int) error {
 	keyTypeErr := dataMapTypeErr(v.Type())
 	iter := v.MapRange()
 	for iter.Next() {
@@ -149,7 +161,7 @@ func (seen dataChecks) mapErr(v reflect.Value, depth int) error {
 		if keyTypeErr != nil {
 			return keyTypeErr
 		}
-		if err := seen.valueErr(iter.Value(), depth+1); err != nil {
+		if err := c.valueErr(iter.Value(), depth+1); err != nil {
 			return err
 		}
 	}
@@ -181,9 +193,9 @@ func integerKind(kind reflect.Kind) bool {
 	return kind >= reflect.Int && kind <= reflect.Uintptr
 }
 
-func (seen dataChecks) elementsErr(v reflect.Value, depth int) error {
+func (c *dataChecks) elementsErr(v reflect.Value, depth int) error {
 	for i := range v.Len() {
-		if err := seen.valueErr(v.Index(i), depth+1); err != nil {
+		if err := c.valueErr(v.Index(i), depth+1); err != nil {
 			return fmt.Errorf("element %d: %w", i, err)
 		}
 	}
