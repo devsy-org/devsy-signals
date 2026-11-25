@@ -190,7 +190,6 @@ func TestParseChecksClassExitRange(t *testing.T) {
 		"131":                   {"{" + usage + ": 131}", usage},
 		"255":                   {"{" + usage + ": 255}", usage},
 		"256":                   {"{" + usage + ": 256}", usage},
-		"negative":              {"{" + usage + ": -1}", usage},
 		"130 on another class":  {"{" + usage + ": 130}", usage},
 		"canceled at 126":       {"{" + canceled + ": 126}", canceled},
 		"canceled at 129":       {"{" + canceled + ": 129}", canceled},
@@ -234,11 +233,13 @@ func TestParseRequiresIntegerExits(t *testing.T) {
 		"tagged quoted":  {`!!int "125"`, wantInteger},
 		"tagged single":  {"!!int '125'", wantInteger},
 		"plain zero":     {"0", "must be between"},
-		"binary":         {"0b101", ""},
-		"hex":            {"0x7E", "must be between"},
-		"octal 0o":       {"0o17", ""},
+		"binary":         {"0b101", wantInteger},
+		"hex":            {"0x7E", wantInteger},
+		"octal 0o":       {"0o17", wantInteger},
 		"plain":          {"7", ""},
-		"hex in range":   {"0x7D", ""},
+		"hex in range":   {"0x7D", wantInteger},
+		"plus sign":      {"+5", wantInteger},
+		"minus sign":     {"-1", wantInteger},
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
@@ -272,6 +273,15 @@ func TestParseRequiresIntegerEntryExit(t *testing.T) {
 
 func exitRejects() []string {
 	return []string{
+		"0x7D",
+		"0X7D",
+		"0o17",
+		"0O17",
+		"0b101",
+		"0B101",
+		"+0X1A",
+		"+5",
+		"-1",
 		"1_0",
 		"0_17",
 		"+0_17",
@@ -304,14 +314,6 @@ func exitAccepts() []string {
 		"125",
 		"130",
 		"1",
-		"+5",
-		"0x7D",
-		"0X7D",
-		"0o17",
-		"0O17",
-		"0b101",
-		"0B101",
-		"+0X1A",
 	}
 }
 

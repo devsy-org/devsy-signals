@@ -207,7 +207,7 @@ func TestLoadInventoryRequiresIntegerClassExits(t *testing.T) {
 			require.ErrorContains(t, err, wantInteger)
 		})
 	}
-	for _, value := range []string{"1", "0x1", "0o1"} {
+	for _, value := range []string{"1"} {
 		_, err := registry.LoadInventory(
 			strings.NewReader("classes: {internal: " + value + "}\ncodes: []\n"),
 		)

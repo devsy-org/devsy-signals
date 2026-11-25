@@ -19,10 +19,9 @@ import (
 var (
 	codeRE  = regexp.MustCompile(`^[a-z][a-z0-9_]*\.[a-z0-9_]+$`)
 	classRE = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
-	// exitRE is the one accepted spelling of an exit value: a decimal without
-	// leading zeros, or a 0x, 0o or 0b radix form, with an optional sign.
-	exitRE = regexp.MustCompile(
-		`^[+-]?(0|[1-9][0-9]*|0([xX][0-9a-fA-F]+|[oO][0-7]+|[bB][01]+))$`)
+	// exitRE is the one accepted spelling of an exit value: unsigned decimal
+	// without leading zeros.
+	exitRE = regexp.MustCompile(`^(0|[1-9][0-9]*)$`)
 )
 
 // Entry is one registered error code.
@@ -95,11 +94,11 @@ func (b *strictBool) UnmarshalYAML(n *yaml.Node) error {
 // strictInt accepts only an unquoted scalar that yaml.v3 tags !!int. That
 // excludes floats such as 125.9, booleans, null, quoted strings and a quoted
 // value forced with an explicit tag (!!int "125"). The spelling must also
-// match exitRE, one canonical form: yaml.v3 strips underscores before it
-// decodes and reads a leading zero as octal, where YAML 1.2 reads decimal, so
-// exits never contain an underscore or a leading-zero decimal (1_0, 017, 0_17
-// and 0b_1 are refused). The radix forms stay (0x7E is 126 and fails the range
-// check).
+// match exitRE, one canonical form: plain unsigned decimal. yaml.v3 strips
+// underscores before it decodes and reads a leading zero as octal, where YAML
+// 1.2 reads decimal, and exits never need a sign or a radix, so underscores,
+// leading zeros, signs and 0x, 0o and 0b prefixes are all refused (1_0, 017,
+// +5, 0x7D). Zero passes here and fails the range check.
 type strictInt int
 
 func (i *strictInt) UnmarshalYAML(n *yaml.Node) error {
