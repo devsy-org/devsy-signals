@@ -23,11 +23,11 @@ type loader func([]byte) error
 
 func loaders() map[string]loader {
 	return map[string]loader{
-		"parse": func(b []byte) error {
+		loaderParse: func(b []byte) error {
 			_, err := registry.Parse(b)
 			return err
 		},
-		"inventory": func(b []byte) error {
+		loaderInventory: func(b []byte) error {
 			_, err := registry.LoadInventory(bytes.NewReader(b))
 			return err
 		},
@@ -35,7 +35,7 @@ func loaders() map[string]loader {
 }
 
 func validFor(name string) string {
-	if name == "parse" {
+	if name == loaderParse {
 		return blockEntry("false", "1")
 	}
 	return publishedDoc("{internal: 1}", "false")

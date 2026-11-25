@@ -21,9 +21,9 @@ const (
 // plain data tree, so the decoder cannot receive a field name, a class or a
 // value through a merge or an alias.
 //
-// The bare non-specific tag "!" needs a source scan. yaml.v3 resolves "! 1" to
-// !!int with no TaggedStyle flag, so the Node cannot tell it from a plain
-// scalar. A node's Line and Column point at its first property, so the scan
+// Some tag spellings need a source scan. yaml.v3 resolves "! 1" and the
+// verbatim "!<!> 1" to !!int with no TaggedStyle flag, so the Node cannot tell
+// them from a plain scalar. A node's Line and Column point at its first property, so the scan
 // reads the source from there. data must be UTF-8 without a byte order mark,
 // which keeps Column aligned with runes.
 func checkStructure(data []byte) error {
@@ -107,8 +107,8 @@ func (c *structureChecker) checkNode(n *yaml.Node, ctx fieldCtx) bool {
 		c.fail(n, ctx, errFeature+" (found an alias)")
 	case n.Style&yaml.TaggedStyle != 0:
 		c.fail(n, ctx, errFeature+" (found an explicit tag)")
-	case c.hasBareTag(position{n.Line - 1, n.Column - 1}):
-		c.fail(n, ctx, errFeature+" (found a bare ! tag)")
+	case c.hasTagProperty(position{n.Line - 1, n.Column - 1}):
+		c.fail(n, ctx, errFeature+" (found a tag)")
 	default:
 		return true
 	}
@@ -149,14 +149,17 @@ func (c *structureChecker) fail(n *yaml.Node, ctx fieldCtx, msg string) {
 
 type position struct{ line, col int }
 
-// hasBareTag reads the properties that start at a node: tags and anchors,
-// separated by blanks, line breaks and comments.
-func (c *structureChecker) hasBareTag(pos position) bool {
+// hasTagProperty reads the properties that start at a node: tags and anchors,
+// separated by blanks, line breaks and comments. It reports any "!" there, so
+// every spelling that yaml.v3 leaves without TaggedStyle is refused: the bare
+// tag, the verbatim forms !<!> and !<%21> (both resolve to "!"), and handle
+// forms. A plain scalar cannot start with "!", so no valid value matches.
+func (c *structureChecker) hasTagProperty(pos position) bool {
 	for c.at(pos) == '!' || c.at(pos) == '&' {
-		tok, next := c.token(pos)
-		if string(tok) == "!" {
+		if c.at(pos) == '!' {
 			return true
 		}
+		_, next := c.token(pos)
 		pos = c.skipSpace(next)
 	}
 	return false

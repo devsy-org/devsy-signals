@@ -111,8 +111,8 @@ func TestLoadInventoryRejectsBareTags(t *testing.T) {
 		)
 	}
 	for name, tc := range map[string]struct{ src, want string }{
-		"class exit": {inventory("! 1", "false"), "exit must be a plain integer"},
-		"retryable":  {inventory("1", "! false"), "retryable must be true or false"},
+		posClassExit: {inventory("! 1", "false"), "exit must be a plain integer"},
+		posRetryable: {inventory("1", "! false"), "retryable must be true or false"},
 		"retryable crlf": {
 			crlf(inventory("1", "! false")),
 			"retryable must be true or false",
