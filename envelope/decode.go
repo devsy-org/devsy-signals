@@ -11,7 +11,13 @@ import (
 	"strings"
 )
 
-const maxRecordBytes = 64 << 10
+const (
+	maxRecordBytes = 64 << 10
+	// maxDepth is the deepest nesting of objects and arrays a record may
+	// have. The top-level object is level 1, so a record of exactly maxDepth
+	// levels is accepted and one more is rejected.
+	maxDepth = 64
+)
 
 // Decode error categories.
 var (
@@ -20,6 +26,7 @@ var (
 	ErrTooLarge  = errors.New("record too large")
 	ErrText      = errors.New("invalid record text")
 	ErrStrict    = errors.New("strict decode rejected record")
+	ErrDepth     = errors.New("record nested too deeply")
 )
 
 // numberRE is the JSON number grammar. Groups: sign, integer, fraction, exponent sign, exponent.
@@ -29,6 +36,7 @@ var numberRE = regexp.MustCompile(`^(-?)(0|[1-9][0-9]*)(?:\.([0-9]+))?(?:[eE]([+
 // unknown fields, preserves unknown enum strings, and treats null and values
 // that do not fit a typed field as absent. Data and attrs preserve nested nulls.
 // Data and attrs keep numbers as json.Number with their original text.
+// Nesting deeper than 64 levels anywhere in the record returns ErrDepth.
 func Decode(data []byte) (Envelope, error) {
 	return decode(data, false)
 }
@@ -37,6 +45,7 @@ func Decode(data []byte) (Envelope, error) {
 // rejects unknown fields and enum strings, nulls in typed fields, incorrect
 // field types, and empty optional strings. Data and attrs preserve nested nulls.
 // Data and attrs keep numbers as json.Number with their original text.
+// Nesting deeper than 64 levels anywhere in the record returns ErrDepth.
 func DecodeStrict(data []byte) (Envelope, error) {
 	return decode(data, true)
 }
@@ -54,6 +63,9 @@ func decode(data []byte, strict bool) (Envelope, error) {
 		return Envelope{}, err
 	}
 	root, err := parseRecord(data)
+	if errors.Is(err, ErrDepth) {
+		return Envelope{}, err
+	}
 	if err != nil {
 		return Envelope{}, fmt.Errorf("%w: %w", ErrNotRecord, err)
 	}

@@ -90,24 +90,9 @@ func TestDecodeKeepsSurrogatePair(t *testing.T) {
 	}
 }
 
-func TestDecodeDeepArrays(t *testing.T) {
-	t.Parallel()
-	const depth = 11000
-	in := `{"v":1,"data":{"a":` + strings.Repeat(
-		"[",
-		depth,
-	) + "0" + strings.Repeat(
-		"]",
-		depth,
-	) + "}}"
-	checkBoth(t, in, nil)
-}
-
 func checkBoth(t *testing.T, in string, want error) {
 	t.Helper()
-	for name, decode := range map[string]func([]byte) (envelope.Envelope, error){
-		"Decode": envelope.Decode, "DecodeStrict": envelope.DecodeStrict,
-	} {
+	for name, decode := range decoders() {
 		got, err := decode([]byte(in))
 		if !errors.Is(err, want) {
 			t.Errorf("%s: got %v, want %v", name, err, want)
@@ -356,6 +341,9 @@ func FuzzDecode(f *testing.F) {
 	for _, seed := range []string{
 		oneRecord, logWith(""), errorWith(errBody), `{"v":1,"data":{"a":[1,2]}}`,
 		`{"v":1,"msg":"\ud83d\ude00"}`, `{"v":1,"msg":"\ud800"}`, `{"v":1,"v":1}`,
+		`{"v":1,"data":` + objects(deepestAccepted, leafNull) + "}",
+		`{"v":1,"data":` + objects(shallowestError, leafNull) + "}",
+		`{"v":1,"future":` + arrays(hugeArrays, "0") + "}",
 	} {
 		f.Add([]byte(seed))
 	}
