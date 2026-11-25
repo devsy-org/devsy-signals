@@ -305,7 +305,8 @@ func checkSummary(code, summary string) error {
 	}
 	if strings.IndexFunc(summary, unsafeRune) >= 0 {
 		return fmt.Errorf(
-			"code %q summary must not contain control or bidirectional characters", code)
+			"code %q summary must not contain control characters, bidirectional formatting "+
+				"characters, U+180E or a byte order mark (U+FEFF)", code)
 	}
 	return nil
 }
