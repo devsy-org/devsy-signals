@@ -15,7 +15,7 @@ const (
 codes:
   - {code: sample.error, class: internal, retryable: false, exit: 1, summary: Sample error}
 `
-	inventoryHeader = "codes:\n"
+	inventoryHeader = "classes: {internal: 1, config: 2}\ncodes:\n"
 	sampleEntry     = "  - code: sample.error\n    class: internal\n    retryable: false\n    status: active\n"
 	addedEntry      = "  - code: sample.added\n    class: internal\n    retryable: false\n    status: active\n"
 )
@@ -27,7 +27,7 @@ func TestRunPreservesRegistryWithoutBaseInventory(t *testing.T) {
 			inventoryHeader + strings.Replace(sampleEntry, "sample.error", "sample.renamed", 1),
 			`"sample.error" was removed`,
 		},
-		"remove": {"codes: []\n", `"sample.error" was removed`},
+		"remove": {"classes: {internal: 1, config: 2}\ncodes: []\n", `"sample.error" was removed`},
 		"class": {
 			inventoryHeader + strings.Replace(sampleEntry, "internal", "config", 1),
 			"different class or retryable",
@@ -56,10 +56,16 @@ func TestRunIgnoresInventoryFormatting(t *testing.T) {
 			t.Parallel()
 			dir, base := setupRepo(t, baseRegistry, inventoryHeader+sampleEntry)
 			writeInventory(t, dir, firstAppend)
+			writeRegistry(t, dir, registryOf(baseClasses, "sample.error", "sample.added"))
 			require.NoError(t, run(t.Context(), dir, base), "first append")
 			base = fixtureTree(t, dir)
 			secondEntry := strings.Replace(addedEntry, "sample.added", "sample.second", 1)
 			writeInventory(t, dir, strings.TrimSuffix(firstAppend, "\n")+"\n"+secondEntry)
+			writeRegistry(
+				t,
+				dir,
+				registryOf(baseClasses, "sample.error", "sample.added", "sample.second"),
+			)
 			require.NoError(t, run(t.Context(), dir, base), "second append")
 		})
 	}
@@ -70,6 +76,7 @@ func TestRunAcceptsCRLFAppendAndRetirement(t *testing.T) {
 	dir, base := setupRepo(t, baseRegistry, crlf(inventoryHeader+sampleEntry))
 	retired := strings.Replace(sampleEntry, "active", "retired", 1)
 	writeInventory(t, dir, crlf(inventoryHeader+retired+addedEntry))
+	writeRegistry(t, dir, registryOf(baseClasses, "sample.added"))
 	require.NoError(t, run(t.Context(), dir, base))
 }
 
@@ -86,6 +93,7 @@ func TestRunAllowsRetirementFromRegistryBaseline(t *testing.T) {
 	dir, base := setupRepo(t, baseRegistry, "")
 	retired := strings.Replace(sampleEntry, "active", "retired", 1)
 	writeInventory(t, dir, inventoryHeader+retired+addedEntry)
+	writeRegistry(t, dir, registryOf(baseClasses, "sample.added"))
 	require.NoError(t, run(t.Context(), dir, base))
 }
 
@@ -95,7 +103,7 @@ func TestRunSkipsOnlyMissingBaseline(t *testing.T) {
 	require.NoError(t, run(t.Context(), dir, base))
 	require.ErrorContains(t, run(t.Context(), dir, "no-such-base"), "git ls-tree")
 	dir, base = setupRepo(t, baseRegistry, "")
-	require.ErrorContains(t, run(t.Context(), dir, base), "read inventory")
+	require.ErrorContains(t, run(t.Context(), dir, base), "read "+inventoryPath)
 }
 
 func crlf(s string) string {

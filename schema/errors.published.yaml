@@ -1,5 +1,16 @@
 # Append new codes at the end. Retire a code by changing its status to retired.
 # Keep retired codes in this inventory forever.
+# Class exit numbers are frozen: never change or remove a class listed here.
+# An inventory without a classes map predates this rule and freezes nothing.
+classes:
+  internal: 1
+  usage: 2
+  config: 2
+  environment: 3
+  transient: 75
+  recoverable_build: 79
+  timeout: 124
+  canceled: 130
 codes:
   - code: unknown
     class: internal
