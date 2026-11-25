@@ -1,0 +1,155 @@
+# Append new codes at the end. Retire a code by changing its status to retired.
+# Keep retired codes in this inventory forever.
+codes:
+  - code: unknown
+    class: internal
+    retryable: false
+    status: active
+  - code: internal.panic
+    class: internal
+    retryable: false
+    status: active
+  - code: canceled
+    class: canceled
+    retryable: false
+    status: active
+  - code: timeout
+    class: timeout
+    retryable: false
+    status: active
+  - code: input.required
+    class: usage
+    retryable: false
+    status: active
+  - code: config.invalid
+    class: config
+    retryable: false
+    status: active
+  - code: api.rate_limited
+    class: transient
+    retryable: true
+    status: active
+  - code: build.failed_recoverable
+    class: recoverable_build
+    retryable: true
+    status: active
+  - code: docker.daemon_unreachable
+    class: environment
+    retryable: false
+    status: active
+  - code: secret.unlock_required
+    class: environment
+    retryable: false
+    status: active
+  - code: secret.unlock_failed
+    class: environment
+    retryable: false
+    status: active
+  - code: secret.backend_unavailable
+    class: environment
+    retryable: false
+    status: active
+  - code: secret.store_corrupt
+    class: environment
+    retryable: false
+    status: active
+  - code: secret.not_found
+    class: config
+    retryable: false
+    status: active
+  - code: ssh.auth_failed
+    class: environment
+    retryable: false
+    status: active
+  - code: ssh.host_key_failed
+    class: environment
+    retryable: false
+    status: active
+  - code: ssh.unreachable
+    class: environment
+    retryable: false
+    status: active
+  - code: ssh.handshake_timeout
+    class: transient
+    retryable: true
+    status: active
+  - code: ssh.command_failed
+    class: environment
+    retryable: false
+    status: active
+  - code: provider.auth_failed
+    class: environment
+    retryable: false
+    status: active
+  - code: provider.auth_expired
+    class: environment
+    retryable: false
+    status: active
+  - code: provider.quota_exceeded
+    class: environment
+    retryable: false
+    status: active
+  - code: provider.invalid_config
+    class: config
+    retryable: false
+    status: active
+  - code: provider.not_found
+    class: environment
+    retryable: false
+    status: active
+  - code: provider.unavailable
+    class: transient
+    retryable: true
+    status: active
+  - code: provider.unreachable
+    class: environment
+    retryable: false
+    status: active
+  - code: runtime.unknown
+    class: internal
+    retryable: false
+    status: active
+  - code: runtime.not_found
+    class: environment
+    retryable: false
+    status: active
+  - code: runtime.already_exists
+    class: environment
+    retryable: false
+    status: active
+  - code: runtime.invalid_argument
+    class: usage
+    retryable: false
+    status: active
+  - code: runtime.unsupported
+    class: environment
+    retryable: false
+    status: active
+  - code: runtime.unavailable
+    class: transient
+    retryable: true
+    status: active
+  - code: runtime.failed_precondition
+    class: environment
+    retryable: false
+    status: active
+  - code: runtime.permission_denied
+    class: environment
+    retryable: false
+    status: active
+  - code: runtime.timeout
+    class: timeout
+    retryable: false
+    status: active
+  - code: runtime.canceled
+    class: canceled
+    retryable: false
+    status: active
+  - code: runtime.failure
+    class: internal
+    retryable: false
+    status: active
+  - code: runtime.incompatible_version
+    class: environment
+    retryable: false
+    status: active

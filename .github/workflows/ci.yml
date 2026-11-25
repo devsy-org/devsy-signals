@@ -21,6 +21,8 @@ jobs:
       GOTOOLCHAIN: local
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          fetch-depth: 0
       - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e
         with:
           go-version: 1.23.x
@@ -33,6 +35,11 @@ jobs:
         run: go test -race ./...
       - name: Test tools module
         run: cd tools && go test -race ./...
+      - name: Check published error codes are append-only
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: cd tools && go run ./cmd/checkpublished -base "$BASE_SHA"
       - name: Check generated files are current
         run: |
           cd tools && go run ./cmd/gencodes

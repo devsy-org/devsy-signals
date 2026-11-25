@@ -1,7 +1,3 @@
-// Package envelope defines the Devsy record envelope: the Go types, strict
-// decoding, validation, level mapping and ULID minting. The JSON Schema in
-// schema/envelope.schema.json is the contract; Validate implements the same
-// rules.
 package envelope
 
 import (
@@ -61,30 +57,35 @@ type Error struct {
 // Envelope is one record. Optional string fields are omitted when empty. An
 // empty string is never a valid value for any field, so empty means absent.
 type Envelope struct {
-	V                 int            `json:"v"`
-	Kind              Kind           `json:"kind"`
-	Type              string         `json:"type,omitempty"`
-	ID                string         `json:"id,omitempty"`
-	TS                string         `json:"ts"`
-	Src               string         `json:"src"`
-	Level             Level          `json:"level,omitempty"`
-	Msg               string         `json:"msg,omitempty"`
-	TraceID           string         `json:"traceId,omitempty"`
-	OperationID       string         `json:"operationId,omitempty"`
-	ParentOperationID string         `json:"parentOperationId,omitempty"`
-	Workspace         string         `json:"workspace,omitempty"`
-	Session           string         `json:"session,omitempty"`
-	Pool              string         `json:"pool,omitempty"`
-	Host              string         `json:"host,omitempty"`
-	PolicyVersion     string         `json:"policyVersion,omitempty"`
-	Actor             *Actor         `json:"actor,omitempty"`
-	Error             *Error         `json:"error,omitempty"`
-	Data              map[string]any `json:"data,omitempty"`
-	Attrs             map[string]any `json:"attrs,omitempty"`
+	V                 int    `json:"v"`
+	Kind              Kind   `json:"kind"`
+	Type              string `json:"type,omitempty"`
+	ID                string `json:"id,omitempty"`
+	TS                string `json:"ts"`
+	Src               Source `json:"src"`
+	Level             Level  `json:"level,omitempty"`
+	Msg               string `json:"msg,omitempty"`
+	TraceID           string `json:"traceId,omitempty"`
+	OperationID       string `json:"operationId,omitempty"`
+	ParentOperationID string `json:"parentOperationId,omitempty"`
+	Workspace         string `json:"workspace,omitempty"`
+	Session           string `json:"session,omitempty"`
+	Pool              string `json:"pool,omitempty"`
+	Host              string `json:"host,omitempty"`
+
+	// PolicyVersion hashes the workspace rules as sha256: plus 64 lowercase hex digits.
+	PolicyVersion string `json:"policyVersion,omitempty"`
+	// ConfigVersion hashes the whole normalized pool file as sha256: plus 64 lowercase hex digits.
+	ConfigVersion string `json:"configVersion,omitempty"`
+
+	Actor *Actor         `json:"actor,omitempty"`
+	Error *Error         `json:"error,omitempty"`
+	Data  map[string]any `json:"data,omitempty"`
+	Attrs map[string]any `json:"attrs,omitempty"`
 }
 
-// Valid reports whether k is a known kind.
-func (k Kind) Valid() bool {
+// Known reports whether k is a known kind.
+func (k Kind) Known() bool {
 	switch k {
 	case KindLog, KindStatus, KindResult, KindError, KindAudit:
 		return true
@@ -92,8 +93,8 @@ func (k Kind) Valid() bool {
 	return false
 }
 
-// Valid reports whether k is a known actor kind.
-func (k ActorKind) Valid() bool {
+// Known reports whether k is a known actor kind.
+func (k ActorKind) Known() bool {
 	switch k {
 	case ActorUser, ActorAgent, ActorAdapter, ActorLocalUser, ActorSystem:
 		return true

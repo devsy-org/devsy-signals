@@ -13,7 +13,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-var codeRE = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$`)
+var (
+	codeRE  = regexp.MustCompile(`^[a-z][a-z0-9_]*\.[a-z0-9_]+$`)
+	classRE = regexp.MustCompile(`^[a-z][a-z0-9]*(_[a-z0-9]+)*$`)
+)
 
 // Entry is one registered error code.
 type Entry struct {
@@ -43,14 +46,8 @@ func Load(path string) (File, error) {
 // retryable flag and extra YAML documents are errors.
 func Parse(data []byte) (File, error) {
 	var raw rawFile
-	dec := yaml.NewDecoder(bytes.NewReader(data))
-	dec.KnownFields(true)
-	if err := dec.Decode(&raw); err != nil {
-		return File{}, fmt.Errorf("decode errors.yaml: %w", err)
-	}
-	var extra yaml.Node
-	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
-		return File{}, errors.New("errors.yaml must hold exactly one YAML document")
+	if err := decodeYAML(bytes.NewReader(data), "errors.yaml", &raw); err != nil {
+		return File{}, err
 	}
 	f, err := raw.file()
 	if err != nil {
@@ -62,12 +59,38 @@ func Parse(data []byte) (File, error) {
 	return f, nil
 }
 
+func decodeYAML(src io.Reader, name string, dst any) error {
+	dec := yaml.NewDecoder(src)
+	dec.KnownFields(true)
+	if err := dec.Decode(dst); err != nil {
+		return fmt.Errorf("decode %s: %w", name, err)
+	}
+	var extra yaml.Node
+	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
+		return fmt.Errorf("%s must hold exactly one YAML document", name)
+	}
+	return nil
+}
+
+// strictBool accepts only the YAML true and false literals. yaml.v3 otherwise
+// reads the YAML 1.1 words on, off, yes and no into a bool.
+type strictBool bool
+
+func (b *strictBool) UnmarshalYAML(n *yaml.Node) error {
+	var v bool
+	if n.Kind != yaml.ScalarNode || n.Tag != "!!bool" || n.Decode(&v) != nil {
+		return fmt.Errorf("line %d: retryable must be true or false", n.Line)
+	}
+	*b = strictBool(v)
+	return nil
+}
+
 type rawEntry struct {
-	Code      string `yaml:"code"`
-	Class     string `yaml:"class"`
-	Retryable *bool  `yaml:"retryable"`
-	Exit      int    `yaml:"exit"`
-	Summary   string `yaml:"summary"`
+	Code      string      `yaml:"code"`
+	Class     string      `yaml:"class"`
+	Retryable *strictBool `yaml:"retryable"`
+	Exit      int         `yaml:"exit"`
+	Summary   string      `yaml:"summary"`
 }
 
 type rawFile struct {
@@ -84,7 +107,11 @@ func (r rawFile) file() (File, error) {
 			continue
 		}
 		f.Codes = append(f.Codes, Entry{
-			Code: e.Code, Class: e.Class, Retryable: *e.Retryable, Exit: e.Exit, Summary: e.Summary,
+			Code:      e.Code,
+			Class:     e.Class,
+			Retryable: bool(*e.Retryable),
+			Exit:      e.Exit,
+			Summary:   e.Summary,
 		})
 	}
 	return f, errors.Join(errs...)
@@ -96,6 +123,11 @@ func (f File) Validate() error {
 	errs := []error{}
 	if len(f.Classes) == 0 {
 		errs = append(errs, errors.New("classes is empty"))
+	}
+	for class := range f.Classes {
+		if !classRE.MatchString(class) {
+			errs = append(errs, fmt.Errorf("class %q must be lowercase snake_case", class))
+		}
 	}
 	reserved := f.reservedNames()
 	seen := map[string]bool{}
@@ -138,8 +170,8 @@ func ConstName(code string) string {
 }
 
 func (f File) checkEntry(e Entry, seen, reserved map[string]bool) error {
-	if !codeRE.MatchString(e.Code) {
-		return fmt.Errorf("code %q does not match %s", e.Code, codeRE)
+	if !validCode(e.Code) {
+		return fmt.Errorf("code %q must have the form domain.reason", e.Code)
 	}
 	exit, ok := f.Classes[e.Class]
 	switch {
@@ -151,8 +183,19 @@ func (f File) checkEntry(e Entry, seen, reserved map[string]bool) error {
 		return fmt.Errorf("code %q has exit %d, class %s needs %d", e.Code, e.Exit, e.Class, exit)
 	case reserved[ConstName(e.Code)]:
 		return fmt.Errorf("code %q generates the reserved Go name %s", e.Code, ConstName(e.Code))
-	case e.Summary == "":
-		return fmt.Errorf("code %q has no summary", e.Code)
+	case strings.TrimSpace(e.Summary) == "":
+		return fmt.Errorf("code %q summary must not be blank", e.Code)
+	case strings.ContainsAny(e.Summary, "\r\n\v\f\u0085\u2028\u2029"):
+		return fmt.Errorf("code %q summary must be a single line", e.Code)
 	}
 	return nil
+}
+
+func validCode(code string) bool {
+	switch code {
+	case "unknown", "canceled", "timeout":
+		return true
+	default:
+		return codeRE.MatchString(code)
+	}
 }

@@ -28,7 +28,7 @@ func decodeFile(t *testing.T, path string) (envelope.Envelope, error) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	return envelope.Decode(data)
+	return envelope.DecodeStrict(data)
 }
 
 func TestValidFixtures(t *testing.T) {
@@ -92,7 +92,7 @@ func mustMarshal(t *testing.T, e envelope.Envelope) []byte {
 
 func mustDecodeValid(t *testing.T, data []byte) envelope.Envelope {
 	t.Helper()
-	e, err := envelope.Decode(data)
+	e, err := envelope.DecodeStrict(data)
 	if err != nil {
 		t.Fatalf("decode marshaled: %v\n%s", err, data)
 	}

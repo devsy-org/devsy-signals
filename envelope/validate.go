@@ -25,10 +25,7 @@ const (
 var (
 	keyRE  = regexp.MustCompile(`^[a-z][a-z0-9_]*(\.[a-z0-9_]+)*$`)
 	ulidRE = regexp.MustCompile(`^[0-7][0-9A-HJKMNP-TV-Z]{25}$`)
-	srcRE  = regexp.MustCompile(
-		`^(cli|desktop|agent|controlplane|pool|provider/[a-z0-9][a-z0-9._-]*)$`,
-	)
-	tsRE = regexp.MustCompile(
+	tsRE   = regexp.MustCompile(
 		`^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}\.[0-9]{3}Z$`,
 	)
 	traceIDRE = regexp.MustCompile(`^[0-9a-f]{32}$`)
@@ -56,10 +53,10 @@ func (e Envelope) Validate() error {
 func (e Envelope) checkHeader() error {
 	var p problems
 	p.add(e.V == Version, "v must be %d, got %d", Version, e.V)
-	p.add(e.Kind.Valid(), "kind %q is not log, status, result, error or audit", e.Kind)
+	p.add(e.Kind.Known(), "kind %q is not log, status, result, error or audit", e.Kind)
 	p.add(validTS(e.TS), "ts %q must be RFC 3339 UTC with milliseconds", e.TS)
-	p.add(srcRE.MatchString(e.Src), "src %q is not a known source", e.Src)
-	p.add(e.Level == "" || e.Level.Valid(), "level %q is not a known level", e.Level)
+	p.add(e.Src.Known(), "src %q is not a known source", e.Src)
+	p.add(e.Level == "" || e.Level.Known(), "level %q is not a known level", e.Level)
 	p.add(e.Type == "" || validKey(e.Type, maxTypeBytes), "type %q is malformed", e.Type)
 	p.add(e.ID == "" || ulidRE.MatchString(e.ID), "id %q is not a ULID", e.ID)
 	return errors.Join(p...)
@@ -151,7 +148,7 @@ func (e Envelope) checkActor() error {
 		return nil
 	}
 	var p problems
-	p.add(e.Actor.Kind.Valid(), "actor.kind %q is not a known actor kind", e.Actor.Kind)
+	p.add(e.Actor.Kind.Known(), "actor.kind %q is not a known actor kind", e.Actor.Kind)
 	p.add(e.Actor.ID != "", "actor.id is required")
 	return errors.Join(p...)
 }
@@ -163,7 +160,7 @@ func (e Envelope) checkError() error {
 	var p problems
 	p.add(keyRE.MatchString(e.Error.Code), "error.code %q is malformed", e.Error.Code)
 	p.add(e.Error.Message != "", "error.message is required")
-	p.add(e.Error.Class.Valid(), "error.class %q is not a known class", e.Error.Class)
+	p.add(e.Error.Class.Known(), "error.class %q is not a known class", e.Error.Class)
 	return errors.Join(p...)
 }
 

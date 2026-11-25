@@ -53,7 +53,7 @@ func schemaVerdict(t *testing.T, s *jsonschema.Schema, raw []byte) error {
 }
 
 func goVerdict(raw []byte) error {
-	e, err := envelope.Decode(raw)
+	e, err := envelope.DecodeStrict(raw)
 	if err != nil {
 		return err
 	}

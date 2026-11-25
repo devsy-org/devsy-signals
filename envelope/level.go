@@ -12,8 +12,8 @@ const (
 	LevelError Level = "error"
 )
 
-// Valid reports whether l is a known level.
-func (l Level) Valid() bool {
+// Known reports whether l is a known level.
+func (l Level) Known() bool {
 	return l.Severity() != 0
 }
 

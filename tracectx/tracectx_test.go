@@ -117,6 +117,31 @@ func TestChild(t *testing.T) {
 	}
 }
 
+func TestChildClearsReservedFlags(t *testing.T) {
+	t.Parallel()
+	for in, want := range map[string]byte{"09": 1, "fe": 0, "01": 1, "00": 0} {
+		parent, err := tracectx.Parse("00-" + trace + "-" + span + "-" + in)
+		if err != nil {
+			t.Fatal(err)
+		}
+		child := tracectx.Child(parent)
+		if child.Flags != want || !strings.HasSuffix(child.String(), fmt.Sprintf("-%02x", want)) {
+			t.Errorf("flags %s: got %02x and %s, want %02x", in, child.Flags, child.String(), want)
+		}
+	}
+}
+
+func TestStringClearsReservedFlags(t *testing.T) {
+	t.Parallel()
+	c, err := tracectx.Parse("00-" + trace + "-" + span + "-09")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := c.String(); got != example {
+		t.Fatalf("got %s", got)
+	}
+}
+
 const (
 	other  = "A=1"
 	otherB = "B=2"
@@ -245,6 +270,44 @@ func TestTraceStateGrammar(t *testing.T) {
 			c, ok := tracectx.FromEnviron([]string{"TRACEPARENT=" + example, "TRACESTATE=" + state})
 			if !ok || c.TraceState != state {
 				t.Fatalf("got %+v %v", c, ok)
+			}
+		})
+	}
+}
+
+func TestTraceStateLimits(t *testing.T) {
+	t.Parallel()
+	pad := func(n int) string { return strings.Repeat("a", n) }
+	value := func(n int) string { return strings.Repeat("v", n) }
+	exactly512 := "k=" + value(256) + ",z=" + value(251)
+	cases := map[string]struct {
+		state string
+		kept  bool
+	}{
+		"512 bytes":       {exactly512, true},
+		"513 bytes":       {exactly512 + "v", false},
+		"key 256":         {pad(256) + "=x", true},
+		"key 257":         {pad(257) + "=x", false},
+		"tenant id 241":   {pad(241) + "@s=x", true},
+		"tenant id 242":   {pad(242) + "@s=x", false},
+		"system id 14":    {"t@" + pad(14) + "=x", true},
+		"system id 15":    {"t@" + pad(15) + "=x", false},
+		"value 256 bytes": {"k=" + value(256), true},
+		"value 257 bytes": {"k=" + value(257), false},
+	}
+	for name, c := range cases {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got, ok := tracectx.FromEnviron(
+				[]string{"TRACEPARENT=" + example, "TRACESTATE=" + c.state},
+			)
+			if !ok || (got.TraceState == c.state) != c.kept {
+				t.Fatalf(
+					"state of %d bytes: got %q, kept want %v",
+					len(c.state),
+					got.TraceState,
+					c.kept,
+				)
 			}
 		})
 	}

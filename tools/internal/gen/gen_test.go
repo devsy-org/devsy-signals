@@ -62,3 +62,17 @@ func TestRenderNames(t *testing.T) {
 	assert.Contains(t, string(goSrc), "SSHAuthFailed = \"ssh.auth_failed\"")
 	assert.Contains(t, string(goSrc), "ClassTransient Class = \"transient\"")
 }
+
+func TestRenderQuotesTypeScriptStringsAsJSON(t *testing.T) {
+	t.Parallel()
+	f := registry.File{
+		Classes: map[string]int{classInternal: 1},
+		Codes: []registry.Entry{
+			{Code: "a.b", Class: classInternal, Exit: 1, Summary: "A \"quote\", \\ and \a <tag>."},
+		},
+	}
+	goSrc, tsSrc, err := gen.Render(f)
+	require.NoError(t, err)
+	assert.Contains(t, string(goSrc), `Summary: "A \"quote\", \\ and \a <tag>."`)
+	assert.Contains(t, string(tsSrc), `summary: "A \"quote\", \\ and \u0007 \u003ctag\u003e."`)
+}
