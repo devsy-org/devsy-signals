@@ -56,10 +56,16 @@ func TestRunIgnoresInventoryFormatting(t *testing.T) {
 			t.Parallel()
 			dir, base := setupRepo(t, baseRegistry, inventoryHeader+sampleEntry)
 			writeInventory(t, dir, firstAppend)
+			writeRegistry(t, dir, registryOf(baseClasses, "sample.error", "sample.added"))
 			require.NoError(t, run(t.Context(), dir, base), "first append")
 			base = fixtureTree(t, dir)
 			secondEntry := strings.Replace(addedEntry, "sample.added", "sample.second", 1)
 			writeInventory(t, dir, strings.TrimSuffix(firstAppend, "\n")+"\n"+secondEntry)
+			writeRegistry(
+				t,
+				dir,
+				registryOf(baseClasses, "sample.error", "sample.added", "sample.second"),
+			)
 			require.NoError(t, run(t.Context(), dir, base), "second append")
 		})
 	}
@@ -70,6 +76,7 @@ func TestRunAcceptsCRLFAppendAndRetirement(t *testing.T) {
 	dir, base := setupRepo(t, baseRegistry, crlf(inventoryHeader+sampleEntry))
 	retired := strings.Replace(sampleEntry, "active", "retired", 1)
 	writeInventory(t, dir, crlf(inventoryHeader+retired+addedEntry))
+	writeRegistry(t, dir, registryOf(baseClasses, "sample.added"))
 	require.NoError(t, run(t.Context(), dir, base))
 }
 
@@ -86,6 +93,7 @@ func TestRunAllowsRetirementFromRegistryBaseline(t *testing.T) {
 	dir, base := setupRepo(t, baseRegistry, "")
 	retired := strings.Replace(sampleEntry, "active", "retired", 1)
 	writeInventory(t, dir, inventoryHeader+retired+addedEntry)
+	writeRegistry(t, dir, registryOf(baseClasses, "sample.added"))
 	require.NoError(t, run(t.Context(), dir, base))
 }
 

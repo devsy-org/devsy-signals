@@ -2,11 +2,13 @@
 package main
 
 import (
+	"bytes"
 	"cmp"
 	"context"
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"os"
 	"os/exec"
@@ -139,18 +141,43 @@ func checkCurrent(root string, base registry.Inventory) error {
 	if err := rejectSymlinks(root, schemaDir, inventoryPath, registryPath); err != nil {
 		return err
 	}
-	file, err := os.OpenInRoot(root, inventoryPath)
+	data, err := readInRoot(root, inventoryPath, "inventory")
 	if err != nil {
-		return fmt.Errorf("read inventory: %w", err)
+		return err
 	}
-	current, err := registry.LoadInventory(file)
-	if err := errors.Join(err, file.Close()); err != nil {
+	current, err := registry.LoadInventory(bytes.NewReader(data))
+	if err != nil {
 		return fmt.Errorf("current inventory: %w", err)
 	}
 	if !current.HasClassExits() {
 		return errors.New("current inventory must record class exits")
 	}
-	return registry.CheckAppendOnly(base, current)
+	if err := registry.CheckAppendOnly(base, current); err != nil {
+		return err
+	}
+	data, err = readInRoot(root, registryPath, "registry")
+	if err != nil {
+		return err
+	}
+	f, err := registry.Parse(data)
+	if err != nil {
+		return fmt.Errorf("current registry: %w", err)
+	}
+	return registry.CheckInventory(f, current)
+}
+
+// readInRoot reads path without leaving root; os.OpenInRoot is the second
+// guard behind rejectSymlinks.
+func readInRoot(root, path, what string) ([]byte, error) {
+	file, err := os.OpenInRoot(root, path)
+	if err != nil {
+		return nil, fmt.Errorf("read %s: %w", what, err)
+	}
+	data, err := io.ReadAll(file)
+	if err := errors.Join(err, file.Close()); err != nil {
+		return nil, fmt.Errorf("read %s: %w", what, err)
+	}
+	return data, nil
 }
 
 func rejectSymlinks(root string, paths ...string) error {
