@@ -44,10 +44,19 @@ func (p *problems) add(ok bool, format string, args ...any) {
 
 // Validate applies the envelope schema and audit data rules and joins every
 // violation. Strings are measured in bytes where the design sets a byte limit.
+// Use maps for nested data objects. Data and attrs reject custom marshalers.
 func (e Envelope) Validate() error {
 	return errors.Join(
-		e.checkHeader(), e.checkRequired(), e.checkAudit(), e.checkIDs(),
-		e.checkActor(), e.checkError(), e.checkAttrs(), e.checkVersions(), e.checkWireText(),
+		e.checkHeader(),
+		e.checkRequired(),
+		e.checkAudit(),
+		e.checkIDs(),
+		e.checkActor(),
+		e.checkError(),
+		e.checkAttrs(),
+		e.checkVersions(),
+		e.checkWireText(),
+		e.checkData(),
 	)
 }
 
@@ -233,7 +242,7 @@ func (e Envelope) checkAttrs() error {
 	for _, key := range slices.Sorted(maps.Keys(e.Attrs)) {
 		p.add(validKey(key, MaxAttrKeyBytes), "attrs key %q is malformed", key)
 		if err := attrValueErr(e.Attrs[key]); err != nil {
-			p.add(false, "attrs[%q]: %v", key, err)
+			p.add(false, "attrs[%q]: %w", key, err)
 		}
 	}
 	return errors.Join(p...)
@@ -243,6 +252,9 @@ func (e Envelope) checkAttrs() error {
 // that the schema allows. Typed slices and arrays are checked by reflection.
 func attrValueErr(v any) error {
 	rv := reflect.ValueOf(v)
+	if err := wireMarshalerErr(rv); err != nil {
+		return err
+	}
 	switch rv.Kind() {
 	case reflect.Slice:
 		if rv.IsNil() {
@@ -262,11 +274,23 @@ func attrValueErr(v any) error {
 func elementsErr(rv reflect.Value) error {
 	var errs []error
 	for i := range rv.Len() {
-		if err := scalarErr(rv.Index(i).Interface()); err != nil {
+		if err := attrElementErr(rv.Index(i)); err != nil {
 			errs = append(errs, fmt.Errorf("element %d: %w", i, err))
 		}
 	}
 	return errors.Join(errs...)
+}
+
+func attrElementErr(v reflect.Value) error {
+	if err := wireMarshalerErr(v); err != nil {
+		return err
+	}
+	if v.Kind() == reflect.Interface {
+		if err := wireMarshalerErr(v.Elem()); err != nil {
+			return err
+		}
+	}
+	return scalarErr(v.Interface())
 }
 
 func scalarErr(v any) error {
@@ -292,8 +316,8 @@ func scalarErr(v any) error {
 }
 
 func stringErr(s string) error {
-	if !validWireString(s) {
-		return errors.New("string must be valid UTF-8 without NUL")
+	if err := wireStringErr(s); err != nil {
+		return err
 	}
 	if len(s) > MaxAttrValueBytes {
 		return fmt.Errorf("string value is %d bytes, the limit is %d", len(s), MaxAttrValueBytes)
