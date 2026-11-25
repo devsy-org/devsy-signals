@@ -1,3 +1,4 @@
 {
-  "go_only/audit_session_request_ref.json": "UTF-8 byte length: 258 bytes in 129 characters"
+  "go_only/audit_session_request_ref.json": "UTF-8 byte length: 258 bytes in 129 characters",
+  "go_only/log_invalid_calendar_date.json": "Calendar validity: the timestamp pattern does not check days per month"
 }
