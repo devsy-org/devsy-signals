@@ -103,7 +103,7 @@ func TestRunSkipsOnlyMissingBaseline(t *testing.T) {
 	require.NoError(t, run(t.Context(), dir, base))
 	require.ErrorContains(t, run(t.Context(), dir, "no-such-base"), "git ls-tree")
 	dir, base = setupRepo(t, baseRegistry, "")
-	require.ErrorContains(t, run(t.Context(), dir, base), "read inventory")
+	require.ErrorContains(t, run(t.Context(), dir, base), "read "+inventoryPath)
 }
 
 func crlf(s string) string {

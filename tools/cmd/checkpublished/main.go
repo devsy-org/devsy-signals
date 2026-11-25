@@ -141,7 +141,7 @@ func checkCurrent(root string, base registry.Inventory) error {
 	if err := rejectSymlinks(root, schemaDir, inventoryPath, registryPath); err != nil {
 		return err
 	}
-	data, err := readInRoot(root, inventoryPath, "inventory")
+	data, err := readInRoot(root, inventoryPath)
 	if err != nil {
 		return err
 	}
@@ -155,7 +155,7 @@ func checkCurrent(root string, base registry.Inventory) error {
 	if err := registry.CheckAppendOnly(base, current); err != nil {
 		return err
 	}
-	data, err = readInRoot(root, registryPath, "registry")
+	data, err = readInRoot(root, registryPath)
 	if err != nil {
 		return err
 	}
@@ -168,14 +168,14 @@ func checkCurrent(root string, base registry.Inventory) error {
 
 // readInRoot reads path without leaving root; os.OpenInRoot is the second
 // guard behind rejectSymlinks.
-func readInRoot(root, path, what string) ([]byte, error) {
+func readInRoot(root, path string) ([]byte, error) {
 	file, err := os.OpenInRoot(root, path)
 	if err != nil {
-		return nil, fmt.Errorf("read %s: %w", what, err)
+		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	data, err := io.ReadAll(file)
 	if err := errors.Join(err, file.Close()); err != nil {
-		return nil, fmt.Errorf("read %s: %w", what, err)
+		return nil, fmt.Errorf("read %s: %w", path, err)
 	}
 	return data, nil
 }

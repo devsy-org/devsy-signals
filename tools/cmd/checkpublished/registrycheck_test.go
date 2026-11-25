@@ -57,5 +57,5 @@ func TestRunRequiresCurrentRegistry(t *testing.T) {
 	t.Parallel()
 	dir, base := setupRepo(t, baseRegistry, inventoryHeader+sampleEntry)
 	require.NoError(t, os.Remove(filepath.Join(dir, registryPath)))
-	require.ErrorContains(t, run(t.Context(), dir, base), "read registry")
+	require.ErrorContains(t, run(t.Context(), dir, base), "read "+registryPath)
 }
