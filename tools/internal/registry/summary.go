@@ -4,11 +4,15 @@ import (
 	"fmt"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 const lineBreaks = "\r\n\v\f\u0085\u2028\u2029"
 
 func checkSummary(code, summary string) error {
+	if !utf8.ValidString(summary) {
+		return fmt.Errorf("code %q summary must be valid UTF-8", code)
+	}
 	if strings.TrimSpace(summary) == "" {
 		return fmt.Errorf("code %q summary must not be blank", code)
 	}

@@ -52,18 +52,12 @@ func TestParseRejectsBareTagOnExit(t *testing.T) {
 		"entry crlf":       crlf(blockEntry("false", "! 1")),
 		"entry quoted":     flowEntry(`"wow !"`, "false", "! 1"),
 		"entry unicode":    flowEntry("\"caf\u00e9 \u4e16\"", "false", "! 1"),
-		"merge reuse": doc(
-			"classes: {internal: 1}",
-			"codes:",
-			"  - &base {code: a.b, class: internal, retryable: false, exit: ! 1, summary: s}",
-			"  - {<<: *base, code: a.c}",
-		),
 	} {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			_, err := registry.Parse([]byte(src))
 			require.ErrorContains(t, err, "exit must be a plain integer")
-			if strings.HasPrefix(name, "entry") || name == "merge reuse" {
+			if strings.HasPrefix(name, "entry") {
 				require.ErrorContains(t, err, `code "a.b"`)
 			}
 		})

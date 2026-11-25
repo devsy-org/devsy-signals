@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"slices"
 	"strings"
+	"unicode/utf8"
 
 	"gopkg.in/yaml.v3"
 )
@@ -64,10 +65,42 @@ func Parse(data []byte) (File, error) {
 	return f, nil
 }
 
-func decodeYAML(src io.Reader, name string, dst any) error {
-	data, err := io.ReadAll(src)
+const (
+	errRetryable = "retryable must be true or false"
+	errPlainExit = "exit must be a plain integer without a tag, anchor or alias"
+
+	// maxFileBytes bounds the registry and inventory files, which hold a few
+	// KB, so the checks below cost a bounded amount of work.
+	maxFileBytes = 1 << 20
+
+	utf8BOM = "\xef\xbb\xbf"
+)
+
+// readSource reads a registry file and accepts only UTF-8 without NUL bytes.
+// yaml.v3 also reads BOM-marked UTF-16, which hides bytes from the checks
+// below, so that is refused here. A UTF-8 byte order mark is stripped.
+func readSource(src io.Reader, name string) ([]byte, error) {
+	data, err := io.ReadAll(io.LimitReader(src, maxFileBytes+1))
 	if err != nil {
-		return fmt.Errorf("read %s: %w", name, err)
+		return nil, fmt.Errorf("read %s: %w", name, err)
+	}
+	if len(data) > maxFileBytes {
+		return nil, fmt.Errorf("%s is too large: the limit is %d bytes", name, maxFileBytes)
+	}
+	if !utf8.Valid(data) || bytes.IndexByte(data, 0) >= 0 {
+		return nil, fmt.Errorf(
+			"%s must be valid UTF-8 without NUL bytes; UTF-16 and UTF-32 are not supported", name)
+	}
+	return bytes.TrimPrefix(data, []byte(utf8BOM)), nil
+}
+
+func decodeYAML(src io.Reader, name string, dst any) error {
+	data, err := readSource(src, name)
+	if err != nil {
+		return err
+	}
+	if err := checkStructure(data); err != nil {
+		return fmt.Errorf("%s: %w", name, err)
 	}
 	dec := yaml.NewDecoder(bytes.NewReader(data))
 	dec.KnownFields(true)
@@ -78,7 +111,7 @@ func decodeYAML(src io.Reader, name string, dst any) error {
 	if err := dec.Decode(&extra); !errors.Is(err, io.EOF) {
 		return fmt.Errorf("%s must hold exactly one YAML document", name)
 	}
-	return checkBareTags(data)
+	return nil
 }
 
 // strictBool accepts only the YAML true and false literals. yaml.v3 otherwise
@@ -93,49 +126,30 @@ type strictBool struct {
 func (b *strictBool) UnmarshalYAML(n *yaml.Node) error {
 	var v bool
 	*b = strictBool{line: n.Line}
-	if decorated(n) || n.Kind != yaml.ScalarNode || n.Tag != "!!bool" || n.Decode(&v) != nil {
+	if n.Kind != yaml.ScalarNode || n.Tag != "!!bool" || n.Decode(&v) != nil {
 		return nil
 	}
 	b.value, b.ok = v, true
 	return nil
 }
 
-// decorated reports an explicit tag or an anchor. yaml.v3 hands a decoder the
-// anchored node for an alias, so an alias to a value shows the anchor too.
-func decorated(n *yaml.Node) bool {
-	return n.Anchor != "" || n.Style&yaml.TaggedStyle != 0
-}
-
 // strictInt accepts only an unquoted scalar that yaml.v3 tags !!int. That
-// excludes floats such as 125.9, booleans, null, quoted strings and a quoted
-// value forced with an explicit tag (!!int "125"). The spelling must also
-// match exitRE, one canonical form: plain unsigned decimal. yaml.v3 strips
-// underscores before it decodes and reads a leading zero as octal, where YAML
-// 1.2 reads decimal, and exits never need a sign or a radix, so underscores,
-// leading zeros, signs and 0x, 0o and 0b prefixes are all refused (1_0, 017,
-// +5, 0x7D). Zero passes here and fails the range check. Explicit tags,
-// anchors and aliases are refused too; plain is set so the caller can name
-// the class or code, which the node does not know.
-type strictInt struct {
-	value int
-	plain bool
-}
+// excludes floats such as 125.9, booleans, null and quoted strings. The
+// spelling must also match exitRE, one canonical form: plain unsigned decimal.
+// yaml.v3 strips underscores before it decodes and reads a leading zero as
+// octal, where YAML 1.2 reads decimal, and exits never need a sign or a radix,
+// so underscores, leading zeros, signs and 0x, 0o and 0b prefixes are all
+// refused (1_0, 017, +5, 0x7D). Zero passes here and fails the range check.
+type strictInt int
 
 func (i *strictInt) UnmarshalYAML(n *yaml.Node) error {
-	if decorated(n) {
-		return nil
-	}
 	var v int
 	if !plainInt(n) || n.Decode(&v) != nil {
 		return fmt.Errorf("line %d: exit must be an integer", n.Line)
 	}
-	*i = strictInt{value: v, plain: true}
+	*i = strictInt(v)
 	return nil
 }
-
-const errRetryable = "retryable must be true or false"
-
-const errPlainExit = "exit must be a plain integer without a tag, anchor or alias"
 
 func plainInt(n *yaml.Node) bool {
 	const quoted = yaml.DoubleQuotedStyle | yaml.SingleQuotedStyle | yaml.LiteralStyle | yaml.FoldedStyle
@@ -150,13 +164,10 @@ func plainInt(n *yaml.Node) bool {
 func exitValues(raw map[string]*strictInt) (map[string]int, error) {
 	exits := make(map[string]int, len(raw))
 	for _, class := range slices.Sorted(maps.Keys(raw)) {
-		switch {
-		case raw[class] == nil:
+		if raw[class] == nil {
 			return nil, fmt.Errorf("class %q must set exit to an integer", class)
-		case !raw[class].plain:
-			return nil, fmt.Errorf("class %q: %s", class, errPlainExit)
 		}
-		exits[class] = raw[class].value
+		exits[class] = int(*raw[class])
 	}
 	return exits, nil
 }
@@ -200,14 +211,12 @@ func (e rawEntry) entry() (Entry, error) {
 		return Entry{}, fmt.Errorf("code %q must set exit to an integer", e.Code)
 	case !e.Retryable.ok:
 		return Entry{}, fmt.Errorf("code %q: line %d: %s", e.Code, e.Retryable.line, errRetryable)
-	case !e.Exit.plain:
-		return Entry{}, fmt.Errorf("code %q: %s", e.Code, errPlainExit)
 	}
 	return Entry{
 		Code:      e.Code,
 		Class:     e.Class,
 		Retryable: e.Retryable.value,
-		Exit:      e.Exit.value,
+		Exit:      int(*e.Exit),
 		Summary:   e.Summary,
 	}, nil
 }
