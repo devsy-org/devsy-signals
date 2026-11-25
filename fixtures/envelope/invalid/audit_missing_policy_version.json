@@ -9,6 +9,7 @@
   "operationId": "b7ad6b7169203331",
   "pool": "pool-a",
   "host": "h_01JD8Z3K5V7Q2M4N6P8R0S1T31",
+  "configVersion": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
   "actor": {
     "kind": "agent",
     "id": "agent-7"

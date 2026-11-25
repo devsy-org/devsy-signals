@@ -30,6 +30,7 @@ var (
 	)
 	traceIDRE = regexp.MustCompile(`^[0-9a-f]{32}$`)
 	spanIDRE  = regexp.MustCompile(`^[0-9a-f]{16}$`)
+	versionRE = regexp.MustCompile(`^sha256:[0-9a-f]{64}$`)
 )
 
 type problems []error
@@ -46,7 +47,7 @@ func (p *problems) add(ok bool, format string, args ...any) {
 func (e Envelope) Validate() error {
 	return errors.Join(
 		e.checkHeader(), e.checkRequired(), e.checkAudit(), e.checkIDs(),
-		e.checkActor(), e.checkError(), e.checkAttrs(),
+		e.checkActor(), e.checkError(), e.checkAttrs(), e.checkVersions(),
 	)
 }
 
@@ -108,11 +109,30 @@ func (e Envelope) missingFields() []string {
 		m.need("pool", e.Pool != "")
 		m.need("host", e.Host != "")
 		m.need("policyVersion", e.PolicyVersion != "")
+		m.need("configVersion", e.ConfigVersion != "")
 		m.need("actor", e.Actor != nil)
 	default:
 		// checkHeader reports an unknown kind.
 	}
 	return m
+}
+
+// IsVersionHash reports whether s is a sha256: prefix followed by 64 lowercase hex digits.
+func IsVersionHash(s string) bool {
+	return versionRE.MatchString(s)
+}
+
+func (e Envelope) checkVersions() error {
+	var p problems
+	p.add(
+		e.PolicyVersion == "" || IsVersionHash(e.PolicyVersion),
+		"policyVersion must be a lowercase SHA-256 hash",
+	)
+	p.add(
+		e.ConfigVersion == "" || IsVersionHash(e.ConfigVersion),
+		"configVersion must be a lowercase SHA-256 hash",
+	)
+	return errors.Join(p...)
 }
 
 func (e Envelope) checkAudit() error {

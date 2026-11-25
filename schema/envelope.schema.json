@@ -79,8 +79,10 @@
       "minLength": 1
     },
     "policyVersion": {
-      "type": "string",
-      "minLength": 1
+      "$ref": "#/$defs/versionHash"
+    },
+    "configVersion": {
+      "$ref": "#/$defs/versionHash"
     },
     "actor": {
       "$ref": "#/$defs/actor"
@@ -214,6 +216,7 @@
           "pool",
           "host",
           "policyVersion",
+          "configVersion",
           "actor"
         ],
         "properties": {
@@ -247,6 +250,10 @@
     }
   ],
   "$defs": {
+    "versionHash": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
     "traceId": {
       "type": "string",
       "pattern": "^[0-9a-f]{32}$",

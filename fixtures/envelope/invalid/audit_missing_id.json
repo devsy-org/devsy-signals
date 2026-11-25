@@ -8,7 +8,8 @@
   "operationId": "b7ad6b7169203331",
   "pool": "pool-a",
   "host": "h_01JD8Z3K5V7Q2M4N6P8R0S1T31",
-  "policyVersion": "2026-11-01.3",
+  "configVersion": "sha256:0000000000000000000000000000000000000000000000000000000000000002",
+  "policyVersion": "sha256:0000000000000000000000000000000000000000000000000000000000000001",
   "actor": {
     "kind": "agent",
     "id": "agent-7"
