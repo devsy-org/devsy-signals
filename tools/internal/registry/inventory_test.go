@@ -76,3 +76,25 @@ func TestInventoryRejectsChanges(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadInventoryNullEntries(t *testing.T) {
+	t.Parallel()
+	const entry = "  - {code: sample.error, class: internal, retryable: false, status: active}\n"
+	for name, tc := range map[string]struct{ src, want string }{
+		"null before entry": {"codes:\n  - null\n" + entry, "inventory entry 0 is null"},
+		"tilde entry":       {"codes:\n" + entry + "  - ~\n", "inventory entry 1 is null"},
+		"empty item":        {"codes:\n  -\n" + entry, "inventory entry 0 is null"},
+		"empty list":        {"codes: []\n", ""},
+		"entry only":        {"codes:\n" + entry, ""},
+	} {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := registry.LoadInventory(strings.NewReader(tc.src))
+			if tc.want == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tc.want)
+		})
+	}
+}
