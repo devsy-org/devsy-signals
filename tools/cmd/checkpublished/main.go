@@ -53,6 +53,12 @@ func run(ctx context.Context, root, base string) error {
 	if err != nil {
 		return fmt.Errorf("base %s: %w", path, err)
 	}
+	if !baseline.HasClassExits() {
+		fmt.Fprintln(
+			os.Stderr,
+			"checkpublished: base inventory has no class exits; not comparing them",
+		)
+	}
 	return checkCurrent(root, baseline)
 }
 
@@ -140,6 +146,9 @@ func checkCurrent(root string, base registry.Inventory) error {
 	current, err := registry.LoadInventory(file)
 	if err := errors.Join(err, file.Close()); err != nil {
 		return fmt.Errorf("current inventory: %w", err)
+	}
+	if !current.HasClassExits() {
+		return errors.New("current inventory must record class exits")
 	}
 	return registry.CheckAppendOnly(base, current)
 }

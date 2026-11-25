@@ -15,7 +15,7 @@ const (
 codes:
   - {code: sample.error, class: internal, retryable: false, exit: 1, summary: Sample error}
 `
-	inventoryHeader = "codes:\n"
+	inventoryHeader = "classes: {internal: 1, config: 2}\ncodes:\n"
 	sampleEntry     = "  - code: sample.error\n    class: internal\n    retryable: false\n    status: active\n"
 	addedEntry      = "  - code: sample.added\n    class: internal\n    retryable: false\n    status: active\n"
 )
@@ -27,7 +27,7 @@ func TestRunPreservesRegistryWithoutBaseInventory(t *testing.T) {
 			inventoryHeader + strings.Replace(sampleEntry, "sample.error", "sample.renamed", 1),
 			`"sample.error" was removed`,
 		},
-		"remove": {"codes: []\n", `"sample.error" was removed`},
+		"remove": {"classes: {internal: 1, config: 2}\ncodes: []\n", `"sample.error" was removed`},
 		"class": {
 			inventoryHeader + strings.Replace(sampleEntry, "internal", "config", 1),
 			"different class or retryable",
